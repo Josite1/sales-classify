@@ -1,0 +1,51 @@
+﻿edition: 3.0.0
+name: sales-classify
+access: default
+
+vars:
+  region: cn-hangzhou
+
+resources:
+  classify_app:
+    component: fc3
+    actions:
+      pre-deploy:
+        - run: npm install --production
+          path: ./dist
+    props:
+      region: ${vars.region}
+      description: 售后数据看板
+      runtime: custom.debian10
+      customRuntimeConfig:
+        command:
+          - ./bootstrap
+        port: 9000
+      functionName: classify-sales
+      code: ./dist
+      cpu: 0.5
+      memorySize: 1024
+      timeout: 60
+      concurrency: 10
+      environmentVariables:
+        COZE_PROJECT_ENV: PROD
+        NODE_ENV: production
+        HOSTNAME: 0.0.0.0
+      triggers:
+        - triggerName: defaultTrigger
+          triggerType: http
+          qualifier: LATEST
+          triggerConfig:
+            authType: anonymous
+            methods:
+              - GET
+              - POST
+              - PUT
+              - PATCH
+              - DELETE
+              - HEAD
+              - OPTIONS
+      customDomain:
+        domainName: auto
+        protocol: HTTP
+        routeConfigs:
+          - path: /*
