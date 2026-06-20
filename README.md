@@ -1,6 +1,6 @@
 ﻿# 售后数据分析看板
 
-基于 **Next.js 16** + **Supabase** + **shadcn/ui** 的售后数据分析看板。支持按日期导入 JSON 格式的售后产品数据，自动记录所有日期数据，并提供周趋势统计与可视化分析。支持用户登录和数据分享功能。
+基于 **Next.js 16** + **Supabase** 的售后数据分析看板。支持按日期导入 JSON 格式的售后产品数据，自动记录所有日期数据，并提供周趋势统计与可视化分析。支持用户登录和数据分享功能。
 
 ## 技术栈
 
@@ -8,7 +8,6 @@
 |------|------|
 | 框架 | Next.js 16 (App Router) |
 | 语言 | TypeScript 5 |
-| UI | shadcn/ui (Radix UI) + Tailwind CSS 4 |
 | 图表 | ECharts |
 | 认证 | Supabase Auth (邮箱密码) |
 | 数据库 | Supabase PostgreSQL |
@@ -201,32 +200,6 @@ pnpm dev
 3. **上传文件** — 上传 `.json` 文件
 
 系统会自动校验并保存，支持多天数据累加和趋势分析。
-
-## 部署
-
-### Railway (推荐)
-
-1. 将代码推送到 GitHub
-2. 在 [Railway](https://railway.app) 中 New Project → Deploy from GitHub repo
-3. 在 Railway 项目 Settings → Variables 中设置环境变量：
-   - `COZE_SUPABASE_URL`
-   - `COZE_SUPABASE_ANON_KEY`
-   - `COZE_PROJECT_ENV=PROD`
-   - `PORT=5000`
-4. Railway 会自动检测 Next.js 项目并构建部署
-
-### Vercel
-
-本项目包含 `vercel.json` 配置文件，可直接部署到 Vercel。
-
-### 环境变量说明
-
-| 变量名 | 必填 | 说明 |
-|--------|------|------|
-| `COZE_SUPABASE_URL` | 是 | Supabase 项目 URL |
-| `COZE_SUPABASE_ANON_KEY` | 是 | Supabase 匿名密钥 |
-| `COZE_PROJECT_ENV` | 否 | 环境标识：`DEV` 或 `PROD` |
-| `PORT` | 否 | 服务端口，默认 5000 |
 
 ## 项目结构
 
