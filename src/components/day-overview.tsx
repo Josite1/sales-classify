@@ -812,7 +812,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                     value={aggregateSearch}
                     onChange={(e) => setAggregateSearch(e.target.value)}
                     placeholder="输入关键词，自动匹配店铺和产品..."
-                    className="h-8 pl-9 pr-[72px] text-xs border-dashed border-primary/30 bg-primary/[0.02] 
+                    className="h-8 pl-10 pr-[72px] text-xs border-dashed border-primary/30 bg-primary/[0.02]
                                focus:border-primary/60 focus:ring-1 focus:ring-primary/20 focus:bg-background
                                hover:border-primary/40 transition-all duration-200"
                   />
