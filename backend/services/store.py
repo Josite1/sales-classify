@@ -7,26 +7,31 @@ from utils.helpers import get_iso_week_label, get_week_monday, get_week_sunday
 
 
 def get_product_total(item: Dict) -> int:
-    return int(item.get('total', 0) or 0)
+    """获取产品总订单数。"""
+        return int(item.get('total', 0) or 0)
 
 
 def get_flags(item: Dict) -> Dict[str, int]:
-    return item.get('标旗分类', {}) or {}
+    """获取标旗分类（红色/绿色/灰色旗子数量）。"""
+        return item.get('标旗分类', {}) or {}
 
 
 def get_flag_count(item: Dict, flag_type: str) -> int:
-    return get_flags(item).get(flag_type, 0) or 0
+    """获取指定旗子颜色的数量。"""
+        return get_flags(item).get(flag_type, 0) or 0
 
 
 def get_region_distribution(item: Dict) -> Dict[str, Dict]:
-    province_flags = item.get('省份分类', {}) or {}
+    """获取地域分布（优先红色旗子数据）。"""
+        province_flags = item.get('省份分类', {}) or {}
     if province_flags and '红色旗子' in province_flags:
         return province_flags['红色旗子']
     return item.get('地域分布', {}) or {}
 
 
 def get_shop_distribution(item: Dict) -> Dict[str, int]:
-    shop_flags = item.get('店铺分类', {}) or {}
+    """获取店铺分布，返回店铺名->订单数映射。"""
+        shop_flags = item.get('店铺分类', {}) or {}
     if shop_flags and '红色旗子' in shop_flags:
         result = {}
         for shop, val in shop_flags['红色旗子'].items():
@@ -43,7 +48,8 @@ def get_shop_distribution(item: Dict) -> Dict[str, int]:
 
 
 def flatten_remark_counts(raw: Dict) -> Dict[str, int]:
-    result = {}
+    """将客服备注分类数据展平为原因->数量映射。处理数字、订单数、明细三种格式。"""
+        result = {}
     for key, val in raw.items():
         if isinstance(val, (int, float)):
             result[key] = result.get(key, 0) + int(val)
@@ -61,19 +67,22 @@ def flatten_remark_counts(raw: Dict) -> Dict[str, int]:
 
 
 def get_red_flag_reasons(item: Dict) -> Dict[str, int]:
-    remark_flags = item.get('客服备注分类', {}) or {}
+    """获取红色旗子下的客服备注原因统计。"""
+        remark_flags = item.get('客服备注分类', {}) or {}
     if remark_flags and '红色旗子' in remark_flags:
         return flatten_remark_counts(remark_flags['红色旗子'])
     return {}
 
 
 def get_remark_by_flag(item: Dict, flag_type: str) -> Dict:
-    remark_flags = item.get('客服备注分类', {}) or {}
+    """获取指定旗子颜色的客服备注分类原始数据。"""
+        remark_flags = item.get('客服备注分类', {}) or {}
     return remark_flags.get(flag_type, {})
 
 
 def get_remark_other_details(item: Dict, flag_type: str):
-    remarks = get_remark_by_flag(item, flag_type)
+    """获取 其他备注的明细数据（包含订单号、品类、备注内容）。"""
+        remarks = get_remark_by_flag(item, flag_type)
     other_val = remarks.get('其他')
     if isinstance(other_val, dict) and '明细' in other_val:
         return other_val
@@ -81,7 +90,8 @@ def get_remark_other_details(item: Dict, flag_type: str):
 
 
 def compute_day_summary(date_str: str, records: Dict) -> Dict:
-    total_orders = 0
+    """计算指定日期的汇总数据：总订单、红色旗子、产品排名、原因排名。"""
+        total_orders = 0
     red_flags = 0
     product_breakdown = []
     reason_agg = {}
@@ -114,7 +124,8 @@ def compute_day_summary(date_str: str, records: Dict) -> Dict:
 
 
 def compute_week_summaries(records: Dict) -> List[Dict]:
-    weeks = defaultdict(lambda: {
+    """按 ISO 周汇总所有记录，返回每周的订单统计和原因排名。"""
+        weeks = defaultdict(lambda: {
         'dates': [],
         'products': defaultdict(int),
         'red_flags': 0,
@@ -159,7 +170,8 @@ def compute_week_summaries(records: Dict) -> List[Dict]:
 
 
 def aggregate_records_by_range(
-    records: Dict,
+    """按日期范围聚合多条记录，计算产品汇总和原因排名。"""
+        records: Dict,
     start_date: str,
     end_date: str,
 ) -> Dict:
@@ -221,7 +233,8 @@ def aggregate_records_by_range(
 
 
 def merge_records(local: Dict, cloud: Dict) -> Dict:
-    merged = dict(local)
+    """合并本地与云端数据，以较新的 importedAt 为准。"""
+        merged = dict(local)
     for date_key, cloud_record in cloud.items():
         if date_key not in merged:
             merged[date_key] = cloud_record
