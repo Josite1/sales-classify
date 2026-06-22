@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
+import { registerBrutalTheme, getBrutalTooltip, getBrutalGrid, getBrutalXAxis, getBrutalYAxis, BRUTAL_COLORS } from '@/lib/echarts-theme';
 import * as echarts from 'echarts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -54,6 +55,7 @@ import type {
   RemarkFlagCategory,
 } from '@/lib/types';
 import {
+
   getProductTotal,
   getFlags,
   getProductQtyStats,
@@ -66,6 +68,11 @@ import {
   getRemarkOtherDetails,
   getShopCount,
 } from '@/lib/store';
+// Register brutalist theme
+if (typeof window !== 'undefined') {
+  registerBrutalTheme(echarts);
+}
+
 
 /* ========== 工具函数 ========== */
 
@@ -217,19 +224,9 @@ const FLAG_COLOR_MAP: Record<string, string> = {
   深蓝旗子: '#1e40af',
 };
 
-const VIVID_COLORS = [
-  '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
-  '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16',
-];
+const VIVID_COLORS = BRUTAL_COLORS;
 
-const TOOLTIP_STYLE = {
-  backgroundColor: 'rgba(255,255,255,0.96)',
-  borderColor: '#d1fae5',
-  borderWidth: 1,
-  textStyle: { color: '#1e293b', fontSize: 12 },
-  padding: [10, 14] as [number, number],
-  extraCssText: 'box-shadow: 0 8px 24px rgba(0,0,0,0.08); border-radius: 12px;',
-};
+const TOOLTIP_STYLE = getBrutalTooltip();
 
 type QtyChartType = 'rose' | 'pie' | 'bar' | 'treemap';
 type FlagChartType = 'pie' | 'bar';
@@ -822,7 +819,7 @@ const isHandGraspCake = useMemo(() => {
     ) => {
       if (!ref.current || data.length === 0) return;
       if (!instanceRef.current || instanceRef.current.isDisposed()) {
-        instanceRef.current = echarts.init(ref.current);
+        instanceRef.current = echarts.init(ref.current, 'brutal');
       }
       const chart = instanceRef.current;
 
@@ -870,7 +867,6 @@ const isHandGraspCake = useMemo(() => {
               center: ['50%', '45%'],
               avoidLabelOverlap: true,
               itemStyle: {
-                borderRadius: 6,
                 borderColor: '#fff',
                 borderWidth: 2,
               },
@@ -938,7 +934,6 @@ const isHandGraspCake = useMemo(() => {
               center: ['50%', '45%'],
               avoidLabelOverlap: true,
               itemStyle: {
-                borderRadius: 6,
                 borderColor: '#fff',
                 borderWidth: 2,
               },
@@ -1013,7 +1008,7 @@ const isHandGraspCake = useMemo(() => {
                       borderColor: 'transparent',
                       backgroundColor: '#f1f5f9',
                       fillerColor: 'rgba(16,185,129,0.2)',
-                      handleStyle: { color: '#10b981' },
+                      handleStyle: { color: '#14b8a6' },
                       textStyle: { fontSize: 10, color: '#94a3b8' },
                     },
                   ]
@@ -1181,7 +1176,7 @@ const isHandGraspCake = useMemo(() => {
       !flagChartInstanceRef.current ||
       flagChartInstanceRef.current.isDisposed()
     ) {
-      flagChartInstanceRef.current = echarts.init(flagChartRef.current);
+      flagChartInstanceRef.current = echarts.init(flagChartRef.current, 'brutal');
     }
     const chart = flagChartInstanceRef.current;
     const sortedFlag = [...flagData].sort((a, b) => b.value - a.value);
@@ -1214,7 +1209,6 @@ const isHandGraspCake = useMemo(() => {
             center: ['50%', '45%'],
             avoidLabelOverlap: true,
             itemStyle: {
-              borderRadius: 6,
               borderColor: '#fff',
               borderWidth: 2,
             },
@@ -1320,7 +1314,7 @@ const isHandGraspCake = useMemo(() => {
       !reasonBarChartRef.current ||
       reasonBarChartRef.current.isDisposed()
     ) {
-      reasonBarChartRef.current = echarts.init(reasonBarRef.current);
+      reasonBarChartRef.current = echarts.init(reasonBarRef.current, 'brutal');
     }
     const chart = reasonBarChartRef.current;
     const sortedReasons = [...remarkBarData].sort((a, b) => a.value - b.value);
@@ -1409,7 +1403,7 @@ const isHandGraspCake = useMemo(() => {
     : '';
 
   const metricCards = [
-    { label: '产品名称', value: displayName, color: '#10b981', isText: true },
+    { label: '产品名称', value: displayName, color: '#14b8a6', isText: true },
     { label: '售后总数', value: total, color: '#3b82f6' },
     { label: '全局占比', value: `${ratio}%`, color: '#8b5cf6' },
     {
@@ -1863,7 +1857,7 @@ const isHandGraspCake = useMemo(() => {
                 </CardDescription>
               </CardHeader>
               <CardContent>
-                <div ref={reasonBarRef} className="w-full h-[320px]" />
+                <div ref={reasonBarRef} className="w-full" style={{ height: Math.max(480, remarkBarData.length * 36 + 24) }} />
               </CardContent>
             </Card>
           )}

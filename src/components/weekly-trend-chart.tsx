@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useMemo, useState, useCallback } from 'react';
+import { registerBrutalTheme, getBrutalTooltip, getBrutalGrid, getBrutalXAxis, getBrutalYAxis, BRUTAL_COLORS } from '@/lib/echarts-theme';
 import * as echarts from 'echarts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -81,10 +82,7 @@ function getDatesInRange(start: string, end: string): string[] {
 
 type TimeMode = 'week' | 'month' | 'year' | 'custom';
 
-const VIVID_COLORS = [
-  '#10b981', '#f59e0b', '#ef4444', '#3b82f6', '#8b5cf6',
-  '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16',
-];
+const VIVID_COLORS = BRUTAL_COLORS;
 
 interface WeeklyTrendChartProps {
   records: AllRecords;
@@ -121,7 +119,7 @@ function getOrCreateChart(
   }
 
   if (!chartRef.current || chartRef.current.isDisposed()) {
-    chartRef.current = echarts.init(dom);
+    chartRef.current = echarts.init(dom, 'brutal');
   }
 
   return chartRef.current;
@@ -635,14 +633,12 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases }: Week
     return Array.from(totals.entries()).sort((a, b) => b[1] - a[1]).slice(0, 8).map(e => e[0]);
   }, [dailyData]);
 
-  const tooltipStyle = {
-    backgroundColor: 'rgba(255,255,255,0.96)',
-    borderColor: '#d1fae5',
-    borderWidth: 1,
-    textStyle: { color: '#1e293b', fontSize: 12 },
-    padding: [10, 14] as [number, number],
-    extraCssText: 'box-shadow: 0 8px 24px rgba(0,0,0,0.08); border-radius: 12px;',
-  };
+  // Register brutalist theme once
+if (typeof window !== 'undefined') {
+  registerBrutalTheme(echarts);
+}
+
+const tooltipStyle = getBrutalTooltip();
 
   // ResizeObserver
   useEffect(() => {
@@ -701,7 +697,7 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases }: Week
           barWidth: '35%',
           itemStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-              { offset: 0, color: '#10b981' }, { offset: 1, color: '#059669' }
+              { offset: 0, color: '#14b8a6' }, { offset: 1, color: '#0d9488' }
             ]),
             borderRadius: [6, 6, 0, 0],
           },

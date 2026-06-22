@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState, useMemo } from 'react';
+import { registerBrutalTheme, getBrutalTooltip, getBrutalGrid, getBrutalXAxis, getBrutalYAxis, BRUTAL_COLORS } from '@/lib/echarts-theme';
 import * as echarts from 'echarts';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -11,23 +12,19 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import { Store, Search, X, Check, ChevronsUpDown, BarChart3, TrendingUp, CalendarDays } from 'lucide-react';
 import type { AllRecords, ProductAliases } from '@/lib/types';
 import {
+
   getProductTotal, getShopDistribution,
   loadProductAliases, getProductDisplayName,
 } from '@/lib/store';
+// Register brutalist theme
+if (typeof window !== 'undefined') {
+  registerBrutalTheme(echarts);
+}
 
-const VIVID_COLORS = [
-  '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
-  '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16',
-];
 
-const TOOLTIP_STYLE = {
-  backgroundColor: 'rgba(255,255,255,0.96)',
-  borderColor: '#d1fae5',
-  borderWidth: 1,
-  textStyle: { color: '#1e293b', fontSize: 12 },
-  padding: [10, 14] as [number, number],
-  extraCssText: 'box-shadow: 0 8px 24px rgba(0,0,0,0.08); border-radius: 12px;',
-};
+const VIVID_COLORS = BRUTAL_COLORS;
+
+const TOOLTIP_STYLE = getBrutalTooltip();
 
 type ShopChartType = 'bar' | 'line';
 type TimePeriod = 'day' | 'week' | 'month';
@@ -314,7 +311,7 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
       try { chartInstanceRef.current.dispose(); } catch { /* ignore */ }
       chartInstanceRef.current = null;
     }
-    const chart = echarts.init(chartRef.current);
+    const chart = echarts.init(chartRef.current, 'brutal');
     chartInstanceRef.current = chart;
 
     const sorted = [...chartData].sort((a, b) => b.value - a.value);
@@ -349,7 +346,7 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
             startValue: 0, endValue: 7,
             borderColor: 'transparent', backgroundColor: '#f1f5f9',
             fillerColor: 'rgba(16,185,129,0.15)',
-            handleStyle: { color: '#10b981' },
+            handleStyle: { color: '#14b8a6' },
             textStyle: { fontSize: 10, color: '#94a3b8' },
           },
           { type: 'inside', xAxisIndex: 0 },
@@ -421,7 +418,7 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
             startValue: 0, endValue: 7,
             borderColor: 'transparent', backgroundColor: '#f1f5f9',
             fillerColor: 'rgba(16,185,129,0.15)',
-            handleStyle: { color: '#10b981' },
+            handleStyle: { color: '#14b8a6' },
             textStyle: { fontSize: 10, color: '#94a3b8' },
           },
           { type: 'inside', xAxisIndex: 0 },
@@ -463,8 +460,8 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
             smooth: true,
             symbol: 'circle',
             symbolSize: 7,
-            lineStyle: { width: 2.5, color: '#10b981' },
-            itemStyle: { color: '#10b981' },
+            lineStyle: { width: 2, color: '#14b8a6' },
+            itemStyle: { color: '#14b8a6' },
             areaStyle: {
               color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
                 { offset: 0, color: 'rgba(16,185,129,0.25)' },
@@ -510,7 +507,7 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
       try { trendChartInstanceRef.current.dispose(); } catch { /* ignore */ }
       trendChartInstanceRef.current = null;
     }
-    const chart = echarts.init(trendChartRef.current);
+    const chart = echarts.init(trendChartRef.current, 'brutal');
     trendChartInstanceRef.current = chart;
 
     const option: echarts.EChartsOption = {

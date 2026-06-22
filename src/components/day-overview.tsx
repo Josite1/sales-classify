@@ -24,9 +24,11 @@ import {
   Store,
   CornerDownLeft
 } from 'lucide-react';
+import { registerBrutalTheme, getBrutalTooltip, getBrutalGrid, getBrutalXAxis, getBrutalYAxis, BRUTAL_COLORS } from '@/lib/echarts-theme';
 import * as echarts from 'echarts';
 import type { AllRecords, ProductAliases, ShopItem } from '@/lib/types';
 import {
+
   getProductTotal,
   getProductDisplayName,
   loadProductAliases,
@@ -34,6 +36,11 @@ import {
   getRedFlagReasons,
   getShopCount
 } from '@/lib/store';
+// Register brutalist theme
+if (typeof window !== 'undefined') {
+  registerBrutalTheme(echarts);
+}
+
 
 type TimeMode = 'day' | 'week' | 'month' | 'year' | 'custom';
 
@@ -271,10 +278,7 @@ interface GlobalProductColumnProps {
   dateLabel: string;
 }
 
-const BAR_COLORS = [
-  '#10b981', '#14b8a6', '#06b6d4', '#3b82f6', '#8b5cf6',
-  '#ec4899', '#f59e0b', '#f97316', '#ef4444', '#84cc16',
-];
+const BAR_COLORS = BRUTAL_COLORS;
 
 function GlobalProductColumn({ products, dateLabel }: GlobalProductColumnProps) {
   const chartRef = useRef<HTMLDivElement>(null);
@@ -283,7 +287,7 @@ function GlobalProductColumn({ products, dateLabel }: GlobalProductColumnProps) 
   useEffect(() => {
     if (!chartRef.current || products.length === 0) return;
     if (!chartInstanceRef.current) {
-      chartInstanceRef.current = echarts.init(chartRef.current);
+      chartInstanceRef.current = echarts.init(chartRef.current, 'brutal');
     }
     const chart = chartInstanceRef.current;
 
@@ -291,23 +295,7 @@ function GlobalProductColumn({ products, dateLabel }: GlobalProductColumnProps) 
 
     chart.setOption(
       {
-        tooltip: {
-          trigger: 'axis',
-          axisPointer: { type: 'shadow' },
-          backgroundColor: 'rgba(255,255,255,0.96)',
-          borderColor: '#d1fae5',
-          borderWidth: 1,
-          textStyle: { color: '#1e293b', fontSize: 13 },
-          padding: [10, 14],
-          extraCssText: 'box-shadow: 0 8px 24px rgba(0,0,0,0.1); border-radius: 12px;',
-          formatter: (params: any) => {
-            const p = params[0];
-            const idx = p.dataIndex;
-            const medal = idx < 3 ? medals[idx] + ' ' : '';
-            // 使用 p.name 获取完整产品名（series.name 改为产品名）
-            return `<b>${medal}${p.name}</b><br/>售后单数: <b style="color:#10b981">${p.value}</b>`;
-          },
-        },
+        tooltip: { ...getBrutalTooltip(), trigger: 'axis', axisPointer: { type: 'shadow' } },
         grid: {
           left: '2%',
           right: '2%',
@@ -328,7 +316,7 @@ function GlobalProductColumn({ products, dateLabel }: GlobalProductColumnProps) 
                   borderColor: 'transparent',
                   backgroundColor: '#f0fdf4',
                   fillerColor: 'rgba(16,185,129,0.2)',
-                  handleStyle: { color: '#10b981', borderColor: '#10b981' },
+                  handleStyle: { color: '#14b8a6', borderColor: '#14b8a6' },
                   textStyle: { color: '#64748b', fontSize: 10 },
                 },
                 { type: 'inside', xAxisIndex: 0 },
@@ -717,7 +705,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
           label: '总售后单数',
           value: summary.totalOrders,
           icon: ShoppingCart,
-          accentColor: '#10b981',
+          accentColor: '#14b8a6',
           iconBg: 'rgba(16,185,129,0.12)',
           change: orderChange,
           changePercent: orderChangePercent,

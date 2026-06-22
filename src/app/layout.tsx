@@ -5,7 +5,7 @@ import './globals.css';
 
 export const metadata: Metadata = {
   title: '售后数据看板',
-  description: '产品售后数量统计与周趋势分析平台',
+  description: '售后数据分类与分析系统',
 };
 
 export default function RootLayout({
@@ -17,7 +17,7 @@ export default function RootLayout({
 
   return (
     <html lang="zh-CN">
-      <body className={`antialiased`}>
+      <body className="antialiased dot-grid-bg">
         <SupabaseConfigProvider>
           {isDev && <Inspector />}
           {children}

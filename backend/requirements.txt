@@ -1,0 +1,9 @@
+﻿fastapi
+uvicorn[standard]
+pydantic
+python-multipart
+python-dotenv
+supabase
+python-jose
+pandas
+openpyxl

@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState, useMemo } from 'react';
+import { registerBrutalTheme, getBrutalTooltip, getBrutalGrid, getBrutalXAxis, getBrutalYAxis, BRUTAL_COLORS } from '@/lib/echarts-theme';
 import * as echarts from 'echarts';
 import chinaGeoJson from 'echarts-china-map/lib/china.json';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -15,18 +16,17 @@ import { format } from 'date-fns';
 import type { DateRange } from 'react-day-picker';
 import type { AllRecords, ProductData, ProductAliases, RegionItem } from '@/lib/types';
 import {
+
   getProductTotal, getRegionDistribution,
   loadProductAliases, getProductDisplayName,
 } from '@/lib/store';
+// Register brutalist theme
+if (typeof window !== 'undefined') {
+  registerBrutalTheme(echarts);
+}
 
-const TOOLTIP_STYLE = {
-  backgroundColor: 'rgba(255,255,255,0.96)',
-  borderColor: '#d1fae5',
-  borderWidth: 1,
-  textStyle: { color: '#1e293b', fontSize: 12 },
-  padding: [10, 14] as [number, number],
-  extraCssText: 'box-shadow: 0 8px 24px rgba(0,0,0,0.08); border-radius: 12px;',
-};
+
+const TOOLTIP_STYLE = getBrutalTooltip();
 
 type RegionChartType = 'map' | 'groupedBar';
 type TimePeriod = 'day' | 'week' | 'month' | 'custom';
@@ -37,10 +37,7 @@ const CHART_OPTIONS: { value: RegionChartType; label: string; icon: React.ReactN
   { value: 'groupedBar', label: '柱状图', icon: <BarChart3 className="h-3.5 w-3.5" /> },
 ];
 
-const VIVID_COLORS = [
-  '#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6',
-  '#ec4899', '#14b8a6', '#f97316', '#06b6d4', '#84cc16',
-];
+const VIVID_COLORS = BRUTAL_COLORS;
 
 // 省份名映射
 function normalizeProvinceName(name: string): string {
@@ -359,7 +356,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
       try { chartInstanceRef.current.dispose(); } catch { /* ignore */ }
       chartInstanceRef.current = null;
     }
-    const chart = echarts.init(chartRef.current);
+    const chart = echarts.init(chartRef.current, 'brutal');
     chartInstanceRef.current = chart;
 
     if (chartType === 'map') {
@@ -489,7 +486,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
           itemHeight: 10,
           itemGap: 16,
           data: [
-            { name: '总数', icon: 'roundRect', itemStyle: { color: '#10b981' } },
+            { name: '总数', icon: 'roundRect', itemStyle: { color: '#14b8a6' } },
             { name: '乡镇/村', icon: 'roundRect', itemStyle: { color: '#f59e0b' } },
             { name: '乡镇占比', icon: 'line', itemStyle: { color: '#8b5cf6' } },
           ],
@@ -506,7 +503,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
             borderColor: 'transparent',
             backgroundColor: '#f1f5f9',
             fillerColor: 'rgba(16,185,129,0.15)',
-            handleStyle: { color: '#10b981', borderColor: '#10b981' },
+            handleStyle: { color: '#14b8a6', borderColor: '#14b8a6' },
             textStyle: { fontSize: 10, color: '#94a3b8' },
           },
           { type: 'inside', xAxisIndex: 0 },
@@ -553,7 +550,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
             itemStyle: {
               color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
                 { offset: 0, color: '#34d399' },
-                { offset: 1, color: '#10b981' },
+                { offset: 1, color: '#14b8a6' },
               ]),
               borderRadius: [4, 4, 0, 0],
             },
@@ -612,7 +609,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
       try { trendChartInstanceRef.current.dispose(); } catch { /* ignore */ }
       trendChartInstanceRef.current = null;
     }
-    const chart = echarts.init(trendChartRef.current);
+    const chart = echarts.init(trendChartRef.current, 'brutal');
     trendChartInstanceRef.current = chart;
 
     const option: echarts.EChartsOption = {

@@ -18,6 +18,7 @@ import {
 import { useAuth } from '@/lib/auth';
 import { getAccessToken } from '@/lib/auth';
 import type { AllRecords, DateRecord, ProductAliases } from '@/lib/types';
+import { ExcelImportDialog } from "@/components/excel-import-dialog";
 import { DataImportDialog } from '@/components/data-import-dialog';
 import { ShareDialog } from '@/components/share-dialog';
 import { ChangePasswordDialog } from '@/components/change-password-dialog';
@@ -31,7 +32,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import {
-  Plus,
+  Plus, FileSpreadsheet,
   BarChart3,
   TrendingUp,
   Package,
@@ -69,6 +70,7 @@ export default function Home() {
   const [records, setRecords] = useState<AllRecords>({});
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const [importOpen, setImportOpen] = useState(false);
+  const [excelImportOpen, setExcelImportOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const [aliases, setAliases] = useState<ProductAliases>({});
   const [mounted, setMounted] = useState(false);
@@ -273,6 +275,10 @@ export default function Home() {
               <Share2 className="h-4 w-4 mr-1.5" />
               分享
             </Button>
+            <Button onClick={() => setExcelImportOpen(true)} variant="outline" size="sm" className="shrink-0">
+              <FileSpreadsheet className="h-4 w-4 mr-1.5" />
+              导入Excel
+            </Button>
             <Button onClick={() => setImportOpen(true)} size="sm" className="shrink-0">
               <Plus className="h-4 w-4 mr-1.5" />
               导入
@@ -408,6 +414,8 @@ export default function Home() {
       </footer>
 
       <DataImportDialog open={importOpen} onOpenChange={setImportOpen} onImported={handleImported} />
+
+      <ExcelImportDialog open={excelImportOpen} onOpenChange={setExcelImportOpen} onImported={handleImported} />
 
       <ShareDialog open={shareOpen} onOpenChange={setShareOpen} records={records} aliases={aliases} />
 

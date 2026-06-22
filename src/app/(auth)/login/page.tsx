@@ -139,7 +139,7 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center p-4">
+    <div className="min-h-screen bg-background flex items-center justify-center p-4 dot-grid-bg">
       <div className="w-full max-w-sm">
         <Card className="border-border shadow-lg">
           <CardHeader className="text-center pb-2 pt-8">
@@ -155,7 +155,7 @@ export default function LoginPage() {
                 />
               </div>
             </div>
-            <h1 className="text-xl font-bold tracking-tight">{APP_NAME}</h1>
+            <h1 className="text-lg font-bold tracking-wide uppercase">{APP_NAME}</h1>
             <p className="text-xs text-muted-foreground mt-1">产品售后数量统计与周趋势分析</p>
           </CardHeader>
 
