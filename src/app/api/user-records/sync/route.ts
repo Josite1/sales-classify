@@ -1,253 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import type { ProductData, RemarkValue, RemarkOtherValue, ShopFlagCategory, ShopItem } from '@/lib/types';
+import type { ProductData, RemarkValue, RemarkOtherValue, ShopItem } from '@/lib/types';
 
-type PostgrestResponse = {
-  data: any[] | null;
-  error: any;
-};
-
-// POST /api/user-records/sync - sync local data to cloud
-export async function POST(req: NextRequest) {
-  const token = req.headers.get('x-session');
-  if (!token) {
-    return NextResponse.json({ error: 'Please login first' }, { status: 401 });
+// ==================== 辅助函数 ====================
+function buildMap(data: any[], key: string): Map<string, any[]> {
+  const map = new Map<string, any[]>();
+  for (const item of data || []) {
+    const k = item[key];
+    if (!map.has(k)) map.set(k, []);
+    map.get(k)!.push(item);
   }
-
-  const client = getSupabaseClient(token);
-  const { data: { user }, error: authError } = await client.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Authentication failed' }, { status: 401 });
-  }
-
-  try {
-    const body = await req.json();
-    const { records } = body as {
-      records: Record<string, { date: string; data: Record<string, ProductData>; importedAt: number }>;
-    };
-
-    if (!records || typeof records !== 'object') {
-      return NextResponse.json({ error: 'Invalid record data' }, { status: 400 });
-    }
-
-    const dateEntries = Object.entries(records);
-    const existingDates = dateEntries.map(([date]) => date);
-
-    for (const [dateStr, record] of dateEntries) {
-      const { data: upserted, error: upsertError } = await client
-        .from('user_records')
-        .upsert(
-          { owner_id: user.id, record_date: dateStr, imported_at: record.importedAt },
-          { onConflict: 'owner_id,record_date', ignoreDuplicates: false }
-        )
-        .select('id');
-
-      if (upsertError) {
-        console.error('Upsert user_records error:', upsertError.message);
-        return NextResponse.json({ error: upsertError.message }, { status: 500 });
-      }
-
-      const recordId = upserted?.[0]?.id;
-      if (!recordId) continue;
-
-      const products = record.data || {};
-
-      const { data: existingProducts } = await client
-        .from('record_products')
-        .select('id, product_name')
-        .eq('record_id', recordId);
-
-      const existingProductMap = new Map<string, string>();
-      for (const p of (existingProducts || [])) {
-        existingProductMap.set(p.product_name, p.id);
-      }
-
-      const newProductNames = new Set(Object.keys(products));
-
-      for (const [prodName, prodId] of existingProductMap) {
-        if (!newProductNames.has(prodName)) {
-          await client.from('record_products').delete().eq('id', prodId);
-        }
-      }
-
-      for (const [productName, productData] of Object.entries(products)) {
-        let productId = existingProductMap.get(productName);
-
-        if (productId) {
-          await client.from('record_products').update({ total: productData.total }).eq('id', productId);
-          await Promise.all([
-            client.from('product_flags').delete().eq('product_id', productId),
-            client.from('product_quantity_distributions').delete().eq('product_id', productId),
-            client.from('product_remark_categories').delete().eq('product_id', productId),
-            client.from('product_province_distributions').delete().eq('product_id', productId),
-            client.from('product_shop_distributions').delete().eq('product_id', productId),
-          ]);
-        } else {
-          const { data: newProd } = await client
-            .from('record_products')
-            .insert({ record_id: recordId, product_name: productName, total: productData.total })
-            .select('id') as unknown as PostgrestResponse;
-          productId = newProd?.[0]?.id;
-          if (!productId) continue;
-        }
-
-        // ????
-        const flagCounts = productData['\u6807\u65d7\u5206\u7c7b'] || {};
-        const flagBatch: any[] = [];
-        for (const [flagColor, count] of Object.entries(flagCounts)) {
-          if (typeof count === 'number' && count > 0) {
-            flagBatch.push({ product_id: productId, flag_color: flagColor, count });
-          }
-        }
-        if (flagBatch.length > 0) {
-          await client.from('product_flags').insert(flagBatch);
-        }
-
-        // ????
-        const qtyDist = productData['\u6570\u91cf\u5206\u7c7b'] || {};
-        const qtyBatch: any[] = [];
-        for (const [flagColor, ranges] of Object.entries(qtyDist)) {
-          if (typeof ranges === 'object' && ranges !== null) {
-            for (const [range, count] of Object.entries(ranges as Record<string, number>)) {
-              if (typeof count === 'number' && count > 0) {
-                qtyBatch.push({ product_id: productId, flag_color: flagColor, quantity_range: range, count });
-              }
-            }
-          }
-        }
-        if (qtyBatch.length > 0) {
-          await client.from('product_quantity_distributions').insert(qtyBatch);
-        }
-
-        // ??????
-        const remarkCat = productData['\u5ba2\u670d\u5907\u6ce8\u5206\u7c7b'] || {};
-        for (const [flagColor, categories] of Object.entries(remarkCat)) {
-          if (typeof categories === 'object' && categories !== null) {
-            for (const [catName, value] of Object.entries(categories as Record<string, unknown>)) {
-              const isOther = typeof value === 'object' && value !== null && '\u8ba2\u5355\u6570' in (value as Record<string, unknown>);
-              const remarkVal = value as RemarkValue;
-              const countVal = isOther ? (remarkVal as RemarkOtherValue)['\u8ba2\u5355\u6570'] : (remarkVal as number);
-              if (typeof countVal !== 'number' || countVal <= 0) continue;
-
-              const { data: newCat } = await client
-                .from('product_remark_categories')
-                .insert({
-                  product_id: productId,
-                  flag_color: flagColor,
-                  category_name: catName,
-                  count: countVal,
-                })
-                .select('id') as unknown as PostgrestResponse;
-
-              const catId = newCat?.[0]?.id;
-
-              if (isOther && catId) {
-                const details = (remarkVal as RemarkOtherValue)['\u660e\u7ec6'] || [];
-                for (const detail of details) {
-                  await client.from('remark_other_details').insert({
-                    remark_category_id: catId,
-                    order_no: detail['\u8ba2\u5355\u53f7'] || '',
-                    product_type: detail['\u54c1\u7c7b'] || '',
-                    remark_text: detail['\u5ba2\u670d\u5907\u6ce8'] || '',
-                  });
-                }
-              }
-            }
-          }
-        }
-
-        // ????
-        const provDist = productData['\u7701\u4efd\u5206\u7c7b'] || {};
-        for (const [flagColor, provinces] of Object.entries(provDist)) {
-          if (typeof provinces === 'object' && provinces !== null) {
-            for (const [province, info] of Object.entries(provinces as Record<string, { count: number; town_village: number }>)) {
-              if (typeof info === 'object' && info !== null && info.count > 0) {
-                await client.from('product_province_distributions').insert({
-                  product_id: productId,
-                  flag_color: flagColor,
-                  province,
-                  order_count: info.count,
-                  town_village_count: info.town_village || 0,
-                });
-              }
-            }
-          }
-        }
-
-        // ????
-        const shopDist = productData['\u5e97\u94fa\u5206\u7c7b'] || {};
-        for (const [flagColor, shops] of Object.entries(shopDist)) {
-          if (typeof shops === 'object' && shops !== null) {
-            for (const [shopName, shopInfo] of Object.entries(shops as Record<string, unknown>)) {
-              if (typeof shopInfo !== 'object' || shopInfo === null) continue;
-              const shopItem = shopInfo as ShopItem;
-              if (!shopItem.count || shopItem.count <= 0) continue;
-
-              const { data: newShop } = await client
-                .from('product_shop_distributions')
-                .insert({
-                  product_id: productId,
-                  flag_color: flagColor,
-                  shop_name: shopName,
-                  order_count: shopItem.count,
-                })
-                .select('id') as unknown as PostgrestResponse;
-
-              const shopId = newShop?.[0]?.id;
-              if (!shopId) continue;
-
-              const shopQty = shopItem['\u6570\u91cf\u5206\u5e03'] || {};
-              for (const [range, count] of Object.entries(shopQty)) {
-                if (typeof count === 'number' && count > 0) {
-                  await client.from('shop_quantity_distributions').insert({
-                    shop_id: shopId,
-                    quantity_range: range,
-                    count,
-                  });
-                }
-              }
-
-              const shopRemark = shopItem['\u5ba2\u670d\u5907\u6ce8\u5206\u7c7b'] || {};
-              for (const [sFlagColor, sCategories] of Object.entries(shopRemark)) {
-                if (typeof sCategories === 'object' && sCategories !== null) {
-                  for (const [sCatName, sCount] of Object.entries(sCategories as unknown as Record<string, unknown>)) {
-                    if (typeof sCount === 'number' && sCount > 0) {
-                      await client.from('shop_remark_categories').insert({
-                        shop_id: shopId,
-                        flag_color: sFlagColor,
-                        category_name: sCatName,
-                        count: sCount,
-                      });
-                    }
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-
-    // Delete cloud records that no longer exist locally
-    if (existingDates.length > 0) {
-      await client
-        .from('user_records')
-        .delete()
-        .eq('owner_id', user.id)
-        .not('record_date', 'in', `(${existingDates.join(',')})`);
-    } else {
-      await client
-        .from('user_records')
-        .delete()
-        .eq('owner_id', user.id);
-    }
-
-    return NextResponse.json({ success: true, synced: dateEntries.length });
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : 'Unknown error';
-    console.error('Sync error:', msg);
-    return NextResponse.json({ error: msg }, { status: 500 });
-  }
+  return map;
 }
 
 function rowsToProductData(
@@ -290,11 +53,11 @@ function rowsToProductData(
       const otherDetails = otherMap.get(r.id) || [];
       if (otherDetails.length > 0) {
         remarkDist[r.flag_color][r.category_name] = {
-          '\u8ba2\u5355\u6570': r.count,
-          '\u660e\u7ec6': otherDetails.map((od: any) => ({
-            '\u8ba2\u5355\u53f7': od.order_no,
-            '\u54c1\u7c7b': od.product_type,
-            '\u5ba2\u670d\u5907\u6ce8': od.remark_text,
+          '订单数': r.count,
+          '明细': otherDetails.map((od: any) => ({
+            '订单号': od.order_no,
+            '品类': od.product_type,
+            '客服备注': od.remark_text,
           })),
         };
       } else {
@@ -327,122 +90,423 @@ function rowsToProductData(
 
       shopDist[s.flag_color][s.shop_name] = {
         count: s.order_count,
-        '\u6570\u91cf\u5206\u5e03': sQtyDist,
-        '\u5ba2\u670d\u5907\u6ce8\u5206\u7c7b': sRemarkDist,
+        '数量分布': sQtyDist,
+        '客服备注分类': sRemarkDist,
       };
     }
 
     result[prodName] = {
       total: product.total,
-      '\u6807\u65d7\u5206\u7c7b': flagCounts,
-      '\u6570\u91cf\u5206\u7c7b': qtyDist,
-      '\u5ba2\u670d\u5907\u6ce8\u5206\u7c7b': remarkDist,
-      '\u7701\u4efd\u5206\u7c7b': provDist,
-      '\u5e97\u94fa\u5206\u7c7b': shopDist,
+      '标志分类': flagCounts,
+      '数量分类': qtyDist,
+      '客服备注分类': remarkDist,
+      '省份分类': provDist,
+      '店铺分类': shopDist,
     } as unknown as ProductData;
   }
 
   return result;
 }
 
-// GET /api/user-records/sync - fetch data from cloud
-export async function GET(req: NextRequest) {
+// ==================== POST 同步上传 ====================
+export async function POST(req: NextRequest) {
   const token = req.headers.get('x-session');
-  if (!token) {
-    return NextResponse.json({ error: 'Please login first' }, { status: 401 });
-  }
+  if (!token) return NextResponse.json({ error: 'Please login first' }, { status: 401 });
 
   const client = getSupabaseClient(token);
   const { data: { user }, error: authError } = await client.auth.getUser();
-  if (authError || !user) {
-    return NextResponse.json({ error: 'Authentication failed' }, { status: 401 });
-  }
+  if (authError || !user) return NextResponse.json({ error: 'Authentication failed' }, { status: 401 });
 
   try {
+    const body = await req.json();
+    const { records } = body as {
+      records: Record<string, { date: string; data: Record<string, ProductData>; importedAt: number }>;
+    };
+
+    if (!records || typeof records !== 'object') {
+      return NextResponse.json({ error: 'Invalid record data' }, { status: 400 });
+    }
+
+    const dateEntries = Object.entries(records);
+
+    // 并发处理所有日期
+    await Promise.all(dateEntries.map(async ([dateStr, record]) => {
+      // 1. 插入或更新 user_records 行
+      const { data: upserted, error: upsertError } = await client
+        .from('user_records')
+        .upsert(
+          { owner_id: user.id, record_date: dateStr, imported_at: record.importedAt },
+          { onConflict: 'owner_id,record_date', ignoreDuplicates: false }
+        )
+        .select('id');
+
+      if (upsertError) throw new Error(`Upsert record ${dateStr}: ${upsertError.message}`);
+      const recordId = upserted?.[0]?.id;
+      if (!recordId) return;
+
+      const products = record.data || {};
+
+      // 2. 获取当前记录下已有产品
+      const { data: existingProducts } = await client
+        .from('record_products')
+        .select('id, product_name')
+        .eq('record_id', recordId);
+
+      const nameToIdMap = new Map<string, string>();
+      const idToNameMap = new Map<string, string>();
+      for (const p of existingProducts || []) {
+        nameToIdMap.set(p.product_name, p.id);
+        idToNameMap.set(p.id, p.product_name);
+      }
+
+      const newProductNames = new Set(Object.keys(products));
+
+      // 3. 删除不再需要的产品
+      const productsToDelete = Array.from(nameToIdMap.entries())
+        .filter(([name]) => !newProductNames.has(name))
+        .map(([, id]) => id);
+
+      if (productsToDelete.length > 0) {
+        // 清理子表（若设置级联删除可省略，但显式处理更安全）
+        await Promise.all([
+          client.from('product_flags').delete().in('product_id', productsToDelete),
+          client.from('product_quantity_distributions').delete().in('product_id', productsToDelete),
+          client.from('product_remark_categories').delete().in('product_id', productsToDelete),
+          client.from('product_province_distributions').delete().in('product_id', productsToDelete),
+          client.from('product_shop_distributions').delete().in('product_id', productsToDelete),
+        ]);
+        await client.from('record_products').delete().in('id', productsToDelete);
+      }
+
+      // 4. 更新已存在产品的 total
+      const updateProductIds: string[] = [];
+      for (const [prodName, prodId] of nameToIdMap) {
+        if (newProductNames.has(prodName)) {
+          updateProductIds.push(prodId);
+          await client.from('record_products').update({ total: products[prodName].total }).eq('id', prodId);
+        }
+      }
+
+      // 5. 批量插入新产品
+      const newProductRows = Array.from(newProductNames)
+        .filter(name => !nameToIdMap.has(name))
+        .map(name => ({
+          record_id: recordId,
+          product_name: name,
+          total: products[name].total,
+        }));
+
+      let newProductList: { id: string; product_name: string }[] = [];
+      if (newProductRows.length > 0) {
+        const { data: inserted } = await client
+          .from('record_products')
+          .insert(newProductRows)
+          .select('id, product_name');
+        newProductList = inserted || [];
+      }
+
+      // 6. 构建所有需要重建子表的产品列表
+      const allProductItems: { id: string; data: ProductData }[] = [];
+
+      for (const id of updateProductIds) {
+        const name = idToNameMap.get(id);
+        if (name && products[name]) {
+          allProductItems.push({ id, data: products[name] });
+        }
+      }
+      for (const np of newProductList) {
+        if (products[np.product_name]) {
+          allProductItems.push({ id: np.id, data: products[np.product_name] });
+        }
+      }
+
+      // 7. 清理这些产品的所有子表数据
+      const allTargetProductIds = allProductItems.map(p => p.id);
+      if (allTargetProductIds.length > 0) {
+        await Promise.all([
+          client.from('product_flags').delete().in('product_id', allTargetProductIds),
+          client.from('product_quantity_distributions').delete().in('product_id', allTargetProductIds),
+          client.from('product_remark_categories').delete().in('product_id', allTargetProductIds),
+          client.from('product_province_distributions').delete().in('product_id', allTargetProductIds),
+          client.from('product_shop_distributions').delete().in('product_id', allTargetProductIds),
+        ]);
+      }
+
+      // 8. 收集所有待插入数据
+      const flagsInsert: any[] = [];
+      const qtyInsert: any[] = [];
+      const remarkInsert: any[] = [];
+      const provInsert: any[] = [];
+      const shopInsert: any[] = [];
+
+      for (const { id: prodId, data } of allProductItems) {
+        // 标志分类
+        const flagCounts = data['标志分类'] || {};
+        for (const [flagColor, count] of Object.entries(flagCounts)) {
+          if (typeof count === 'number' && count > 0) {
+            flagsInsert.push({ product_id: prodId, flag_color: flagColor, count });
+          }
+        }
+
+        // 数量分类
+        const qtyDist = data['数量分类'] || {};
+        for (const [flagColor, ranges] of Object.entries(qtyDist)) {
+          if (typeof ranges === 'object' && ranges !== null) {
+            for (const [range, count] of Object.entries(ranges as Record<string, number>)) {
+              if (typeof count === 'number' && count > 0) {
+                qtyInsert.push({ product_id: prodId, flag_color: flagColor, quantity_range: range, count });
+              }
+            }
+          }
+        }
+
+        // 客服备注分类（带明细）
+        const remarkCat = data['客服备注分类'] || {};
+        for (const [flagColor, categories] of Object.entries(remarkCat)) {
+          if (typeof categories === 'object' && categories !== null) {
+            for (const [catName, value] of Object.entries(categories as Record<string, unknown>)) {
+              const isOther = typeof value === 'object' && value !== null && '订单数' in (value as Record<string, unknown>);
+              const remarkVal = value as RemarkValue;
+              const countVal = isOther ? (remarkVal as RemarkOtherValue)['订单数'] : (remarkVal as number);
+              if (typeof countVal !== 'number' || countVal <= 0) continue;
+
+              remarkInsert.push({
+                product_id: prodId,
+                flag_color: flagColor,
+                category_name: catName,
+                count: countVal,
+                _tempOther: isOther ? (remarkVal as RemarkOtherValue)['明细'] || [] : null,
+              });
+            }
+          }
+        }
+
+        // 省份分类
+        const provDist = data['省份分类'] || {};
+        for (const [flagColor, provinces] of Object.entries(provDist)) {
+          if (typeof provinces === 'object' && provinces !== null) {
+            for (const [province, info] of Object.entries(provinces as Record<string, { count: number; town_village: number }>)) {
+              if (typeof info === 'object' && info !== null && info.count > 0) {
+                provInsert.push({
+                  product_id: prodId,
+                  flag_color: flagColor,
+                  province,
+                  order_count: info.count,
+                  town_village_count: info.town_village || 0,
+                });
+              }
+            }
+          }
+        }
+
+        // 店铺分类（带子表）
+        const shopDist = data['店铺分类'] || {};
+        for (const [flagColor, shops] of Object.entries(shopDist)) {
+          if (typeof shops === 'object' && shops !== null) {
+            for (const [shopName, shopInfo] of Object.entries(shops as Record<string, unknown>)) {
+              if (typeof shopInfo !== 'object' || shopInfo === null) continue;
+              const shopItem = shopInfo as ShopItem;
+              if (!shopItem.count || shopItem.count <= 0) continue;
+
+              shopInsert.push({
+                product_id: prodId,
+                flag_color: flagColor,
+                shop_name: shopName,
+                order_count: shopItem.count,
+                _tempShopQty: shopItem['数量分布'] || {},
+                _tempShopRemark: shopItem['客服备注分类'] || {},
+              });
+            }
+          }
+        }
+      }
+
+      // 9. 批量插入不依赖外键的子表
+      await Promise.all([
+        flagsInsert.length && client.from('product_flags').insert(flagsInsert),
+        qtyInsert.length && client.from('product_quantity_distributions').insert(qtyInsert),
+        provInsert.length && client.from('product_province_distributions').insert(provInsert),
+      ].filter(Boolean));
+
+      // 10. 处理备注分类 → 关联 other details
+      if (remarkInsert.length > 0) {
+        const cleanRemarks = remarkInsert.map(({ _tempOther, ...rest }) => rest);
+        const { data: insertedRemarks } = await client
+          .from('product_remark_categories')
+          .insert(cleanRemarks)
+          .select('id');
+
+        if (insertedRemarks) {
+          const otherInsert: any[] = [];
+          for (let i = 0; i < insertedRemarks.length; i++) {
+            const original = remarkInsert[i];
+            if (original._tempOther && original._tempOther.length > 0) {
+              const catId = insertedRemarks[i].id;
+              for (const detail of original._tempOther) {
+                otherInsert.push({
+                  remark_category_id: catId,
+                  order_no: detail['订单号'] || '',
+                  product_type: detail['品类'] || '',
+                  remark_text: detail['客服备注'] || '',
+                });
+              }
+            }
+          }
+          if (otherInsert.length > 0) {
+            await client.from('remark_other_details').insert(otherInsert);
+          }
+        }
+      }
+
+      // 11. 处理店铺 → 关联数量分布、备注分类
+      if (shopInsert.length > 0) {
+        const cleanShops = shopInsert.map(({ _tempShopQty, _tempShopRemark, ...rest }) => rest);
+        const { data: insertedShops } = await client
+          .from('product_shop_distributions')
+          .insert(cleanShops)
+          .select('id');
+
+        if (insertedShops) {
+          const shopQtyInsert: any[] = [];
+          const shopRemarkInsert: any[] = [];
+          for (let i = 0; i < insertedShops.length; i++) {
+            const shopId = insertedShops[i].id;
+            const original = shopInsert[i];
+
+            for (const [range, count] of Object.entries(original._tempShopQty)) {
+              if (typeof count === 'number' && count > 0) {
+                shopQtyInsert.push({ shop_id: shopId, quantity_range: range, count });
+              }
+            }
+
+            for (const [sFlagColor, sCategories] of Object.entries(original._tempShopRemark)) {
+              if (typeof sCategories === 'object' && sCategories !== null) {
+                for (const [sCatName, sCount] of Object.entries(sCategories as Record<string, number>)) {
+                  if (typeof sCount === 'number' && sCount > 0) {
+                    shopRemarkInsert.push({ shop_id: shopId, flag_color: sFlagColor, category_name: sCatName, count: sCount });
+                  }
+                }
+              }
+            }
+          }
+          await Promise.all([
+            shopQtyInsert.length && client.from('shop_quantity_distributions').insert(shopQtyInsert),
+            shopRemarkInsert.length && client.from('shop_remark_categories').insert(shopRemarkInsert),
+          ].filter(Boolean));
+        }
+      }
+    }));
+
+    // ---------- 删除云端不再存在的日期记录 ----------
+    const allLocalDates = dateEntries.map(([date]) => date);
+    if (allLocalDates.length > 0) {
+      await client
+        .from('user_records')
+        .delete()
+        .eq('owner_id', user.id)
+        .not('record_date', 'in', allLocalDates);
+    } else {
+      await client
+        .from('user_records')
+        .delete()
+        .eq('owner_id', user.id);
+    }
+
+    return NextResponse.json({ success: true, synced: dateEntries.length });
+  } catch (err) {
+    const msg = err instanceof Error ? err.message : 'Unknown error';
+    console.error('Sync error:', msg);
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+// ==================== GET 拉取同步 ====================
+export async function GET(req: NextRequest) {
+  const token = req.headers.get('x-session');
+  if (!token) return NextResponse.json({ error: 'Please login first' }, { status: 401 });
+
+  const client = getSupabaseClient(token);
+  const { data: { user }, error: authError } = await client.auth.getUser();
+  if (authError || !user) return NextResponse.json({ error: 'Authentication failed' }, { status: 401 });
+
+  try {
+    // 1. 获取该用户所有记录
     const { data: records, error: recError } = await client
       .from('user_records')
       .select('id, record_date, imported_at')
-      .eq('owner_id', user.id)
-      .order('record_date', { ascending: true });
+      .eq('owner_id', user.id);
 
-    if (recError) {
-      return NextResponse.json({ error: recError.message }, { status: 500 });
+    if (recError) return NextResponse.json({ error: recError.message }, { status: 500 });
+    if (!records || records.length === 0) {
+      return NextResponse.json({ success: true, records: {} });
     }
 
-    const result: Record<string, { date: string; data: Record<string, ProductData>; importedAt: number }> = {};
+    const recordIds = records.map(r => r.id);
 
-    for (const record of (records || [])) {
-      const recId = record.id;
+    // 2. 一次获取所有产品
+    const { data: products } = await client
+      .from('record_products')
+      .select('*')
+      .in('record_id', recordIds);
 
-      const { data: products } = await client
-        .from('record_products')
-        .select('id, product_name, total')
-        .eq('record_id', recId) as unknown as PostgrestResponse;
+    const productIds = (products || []).map(p => p.id);
 
-      const productIds = (products || []).map((p: any) => p.id);
-
-      if (productIds.length === 0) {
-        result[record.record_date] = {
-          date: record.record_date,
-          data: {},
-          importedAt: record.imported_at,
-        };
-        continue;
+    if (productIds.length === 0) {
+      const result: any = {};
+      for (const r of records) {
+        result[r.record_date] = { date: r.record_date, data: {}, importedAt: r.imported_at };
       }
+      return NextResponse.json({ success: true, records: result });
+    }
 
-      const [flagsRes, qtyRes, remarkRes, provRes, shopRes] = await Promise.all([
-        client.from('product_flags').select('*').in('product_id', productIds),
-        client.from('product_quantity_distributions').select('*').in('product_id', productIds),
-        client.from('product_remark_categories').select('*').in('product_id', productIds),
-        client.from('product_province_distributions').select('*').in('product_id', productIds),
-        client.from('product_shop_distributions').select('*').in('product_id', productIds),
-      ]) as unknown as PostgrestResponse[];
+    // 3. 一次性获取所有子表数据
+    const [
+      { data: flags },
+      { data: qties },
+      { data: remarks },
+      { data: provs },
+      { data: shops },
+    ] = await Promise.all([
+      client.from('product_flags').select('*').in('product_id', productIds),
+      client.from('product_quantity_distributions').select('*').in('product_id', productIds),
+      client.from('product_remark_categories').select('*').in('product_id', productIds),
+      client.from('product_province_distributions').select('*').in('product_id', productIds),
+      client.from('product_shop_distributions').select('*').in('product_id', productIds),
+    ]);
 
-      const flagsData = flagsRes.data || [];
-      const qtyData = qtyRes.data || [];
-      const remarkData = remarkRes.data || [];
-      const provData = provRes.data || [];
-      const shopData = shopRes.data || [];
+    const remarkIds = (remarks || []).map((r: any) => r.id);
+    const shopIds = (shops || []).map((s: any) => s.id);
 
-      const remarkIds = remarkData.map((r: any) => r.id);
-      let otherData: any[] = [];
-      if (remarkIds.length > 0) {
-        const otherRes = await client
-          .from('remark_other_details')
-          .select('*')
-          .in('remark_category_id', remarkIds) as unknown as PostgrestResponse;
-        otherData = otherRes.data || [];
-      }
+    const [
+      { data: otherDetails },
+      { data: shopQties },
+      { data: shopRemarks },
+    ] = await Promise.all([
+      remarkIds.length ? client.from('remark_other_details').select('*').in('remark_category_id', remarkIds) : Promise.resolve({ data: [] }),
+      shopIds.length ? client.from('shop_quantity_distributions').select('*').in('shop_id', shopIds) : Promise.resolve({ data: [] }),
+      shopIds.length ? client.from('shop_remark_categories').select('*').in('shop_id', shopIds) : Promise.resolve({ data: [] }),
+    ]);
 
-      const shopIds = shopData.map((s: any) => s.id);
-      let shopQtyData: any[] = [];
-      let shopRemarkData: any[] = [];
-      if (shopIds.length > 0) {
-        const [sqRes, srRes] = await Promise.all([
-          client.from('shop_quantity_distributions').select('*').in('shop_id', shopIds),
-          client.from('shop_remark_categories').select('*').in('shop_id', shopIds),
-        ]) as unknown as PostgrestResponse[];
-        shopQtyData = sqRes.data || [];
-        shopRemarkData = srRes.data || [];
-      }
+    // 4. 内存分组
+    const flagsMap = buildMap(flags || [], 'product_id');
+    const qtyMap = buildMap(qties || [], 'product_id');
+    const remarkMap = buildMap(remarks || [], 'product_id');
+    const otherMap = buildMap(otherDetails || [], 'remark_category_id');
+    const provMap = buildMap(provs || [], 'product_id');
+    const shopMap = buildMap(shops || [], 'product_id');
+    const shopQtyMap = buildMap(shopQties || [], 'shop_id');
+    const shopRemarkMap = buildMap(shopRemarks || [], 'shop_id');
 
-      const flagsMap = buildMap(flagsData, 'product_id');
-      const qtyMap = buildMap(qtyData, 'product_id');
-      const remarkMap = buildMap(remarkData, 'product_id');
-      const otherMap = buildMap(otherData, 'remark_category_id');
-      const provMap = buildMap(provData, 'product_id');
-      const shopMap = buildMap(shopData, 'product_id');
-      const shopQtyMap = buildMap(shopQtyData, 'shop_id');
-      const shopRemarkMap = buildMap(shopRemarkData, 'shop_id');
-
-      const productData = rowsToProductData(
-        products || [],
-        flagsMap, qtyMap, remarkMap, otherMap, provMap, shopMap, shopQtyMap, shopRemarkMap
-      );
-
+    // 5. 按日期构建返回结果
+    const result: Record<string, any> = {};
+    for (const record of records) {
+      const recProducts = (products || []).filter(p => p.record_id === record.id);
       result[record.record_date] = {
         date: record.record_date,
-        data: productData,
+        data: rowsToProductData(
+          recProducts,
+          flagsMap, qtyMap, remarkMap, otherMap, provMap, shopMap, shopQtyMap, shopRemarkMap
+        ),
         importedAt: record.imported_at,
       };
     }
@@ -453,14 +517,4 @@ export async function GET(req: NextRequest) {
     console.error('Fetch error:', msg);
     return NextResponse.json({ error: msg }, { status: 500 });
   }
-}
-
-function buildMap(data: any[], key: string): Map<string, any[]> {
-  const map = new Map<string, any[]>();
-  for (const item of data || []) {
-    const k = item[key];
-    if (!map.has(k)) map.set(k, []);
-    map.get(k)!.push(item);
-  }
-  return map;
 }
