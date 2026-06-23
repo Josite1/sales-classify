@@ -75,11 +75,13 @@ export async function POST(req: NextRequest) {
 
         if (productId) {
           await client.from('record_products').update({ total: productData.total }).eq('id', productId);
-          await client.from('product_flags').delete().eq('product_id', productId);
-          await client.from('product_quantity_distributions').delete().eq('product_id', productId);
-          await client.from('product_remark_categories').delete().eq('product_id', productId);
-          await client.from('product_province_distributions').delete().eq('product_id', productId);
-          await client.from('product_shop_distributions').delete().eq('product_id', productId);
+          await Promise.all([
+            client.from('product_flags').delete().eq('product_id', productId),
+            client.from('product_quantity_distributions').delete().eq('product_id', productId),
+            client.from('product_remark_categories').delete().eq('product_id', productId),
+            client.from('product_province_distributions').delete().eq('product_id', productId),
+            client.from('product_shop_distributions').delete().eq('product_id', productId),
+          ]);
         } else {
           const { data: newProd } = await client
             .from('record_products')
