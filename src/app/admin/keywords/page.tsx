@@ -69,13 +69,13 @@ export default function KeywordsAdminPage() {
 
   // 提示信息平滑淡出
   const [fadingOut, setFadingOut] = useState(false);
-  const successTimer = useRef<ReturnType<typeof setTimeout>>();
-  const fadeTimer = useRef<ReturnType<typeof setTimeout>>();
+  const successTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const fadeTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // 删除行渐隐
   const [deletingReasonKey, setDeletingReasonKey] = useState<string | null>(null);
   const [deletingProductIdx, setDeletingProductIdx] = useState<number | null>(null);
-  const deleteTimer = useRef<ReturnType<typeof setTimeout>>();
+  const deleteTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
 
   // 新增行高亮
   const [highlightedReason, setHighlightedReason] = useState<string | null>(null);
