@@ -788,7 +788,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
                   placeholder="搜索产品聚合..."
                   value={searchKeyword}
                   onChange={(e) => setSearchKeyword(e.target.value)}
-                  className="pl-8 h-8 text-xs"
+                  className="!pl-9 h-8 text-xs"
                 />
                 {searchKeyword && (
                   <button onClick={() => setSearchKeyword('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">

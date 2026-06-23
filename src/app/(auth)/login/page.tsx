@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Eye, EyeOff, Mail, Lock, ArrowLeft } from 'lucide-react';
 import { BarChart3 } from 'lucide-react';
 
-const APP_ICON = 'https://coze-coding-project.tos.coze.site/gen_project_icon/2026-05-30/7645517311235096639_1780111991.png?sign=4902517311-4ba811436f-0-6207045dfb96dda9f5cfb2c0edb03ab52b738bcf67e23aa39efb51d47ce44009';
+const APP_ICON = 'https://cdn.phototourl.com/free/2026-06-23-9d04aae5-38ec-4531-8e2d-5fd3883e2c89.gif';
 const APP_NAME = '售后数据看板';
 
 type PageMode = 'login' | 'register';
@@ -161,23 +161,23 @@ export default function LoginPage() {
 
           <CardContent className="pt-4 pb-8 px-6">
             <form onSubmit={handleSubmit} className="space-y-4" autoComplete="off">
-              <div className="space-y-2">
-                <Label htmlFor="email" className="text-xs font-medium">
-                  邮箱
-                </Label>
-                <div className="relative">
-                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder="your@email.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="pl-9 h-10"
-                    autoComplete="email"
-                  />
-                </div>
-              </div>
+          <div className="space-y-2">
+  <Label htmlFor="email" className="text-xs font-medium">
+    邮箱
+  </Label>
+  <div className="relative">
+    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+    <Input
+      id="email"
+      type="email"
+      placeholder="your@email.com"
+      value={email}
+      onChange={(e) => setEmail(e.target.value)}
+      className="!pl-10 h-10"  // 从 pl-9 改为 pl-10
+      autoComplete="email"
+    />
+  </div>
+</div>
 
               <div className="space-y-2">
                 <Label htmlFor="password" className="text-xs font-medium">
@@ -191,7 +191,7 @@ export default function LoginPage() {
                     placeholder="输入密码"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="pl-9 pr-10 h-10"
+                    className="!pl-10 pr-10 h-10"
                     autoComplete={mode === 'login' ? 'current-password' : 'new-password'}
                   />
                   <button
@@ -217,7 +217,7 @@ export default function LoginPage() {
                       placeholder="再次输入密码"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="pl-9 pr-10 h-10"
+                      className="!pl-10 pr-10 h-10"
                       autoComplete="new-password"
                     />
                     <button

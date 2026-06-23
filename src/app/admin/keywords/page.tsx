@@ -32,14 +32,13 @@ import {
   Save,
   X,
   Upload,
-  FileSpreadsheet,
   ArrowLeft,
   AlertCircle,
   CheckCircle2,
   Loader2,
   Check,
+  Search,
 } from 'lucide-react';
-import Link from 'next/link';
 
 interface KeywordRule {
   category: string;
@@ -59,9 +58,14 @@ export default function KeywordsAdminPage() {
   const [editingProduct, setEditingProduct] = useState<KeywordRule | null>(null);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [importing, setImporting] = useState(false);
+  
+  // 分页状态
   const [reasonPage, setReasonPage] = useState(1);
   const [productPage, setProductPage] = useState(1);
   const PAGE_SIZE = 10;
+
+  // 搜索状态
+  const [searchQuery, setSearchQuery] = useState('');
 
   // 单个关键词编辑状态
   const [editingKeyword, setEditingKeyword] = useState<string | null>(null);
@@ -81,14 +85,36 @@ export default function KeywordsAdminPage() {
   const [highlightedReason, setHighlightedReason] = useState<string | null>(null);
   const [highlightedProductIdx, setHighlightedProductIdx] = useState<number | null>(null);
 
-  // 保存状态引用，用于乐观更新后的异步保存
-  const savingRef = useRef<boolean>(false);
-
+  // 颜色映射
   const KEYWORD_COLORS = ["bg-blue-50 text-blue-700 border-blue-200", "bg-green-50 text-green-700 border-green-200", "bg-amber-50 text-amber-700 border-amber-200", "bg-purple-50 text-purple-700 border-purple-200", "bg-pink-50 text-pink-700 border-pink-200", "bg-cyan-50 text-cyan-700 border-cyan-200", "bg-rose-50 text-rose-700 border-rose-200", "bg-indigo-50 text-indigo-700 border-indigo-200", "bg-teal-50 text-teal-700 border-teal-200", "bg-orange-50 text-orange-700 border-orange-200"];
-
   const getKeywordColor = (idx: number) => KEYWORD_COLORS[idx % KEYWORD_COLORS.length];
 
-  // 异步保存售后原因
+  // --- 过滤逻辑 (搜索功能) ---
+  const filteredReasons = useMemo(() => {
+    if (!searchQuery.trim()) return reasons;
+    const q = searchQuery.toLowerCase();
+    return reasons.filter(r => 
+      r.category.toLowerCase().includes(q) || 
+      r.keywords.toLowerCase().includes(q)
+    );
+  }, [reasons, searchQuery]);
+
+  const filteredProducts = useMemo(() => {
+    if (!searchQuery.trim()) return products;
+    const q = searchQuery.toLowerCase();
+    return products.filter(p => 
+      p.category.toLowerCase().includes(q) || 
+      p.keywords.toLowerCase().includes(q)
+    );
+  }, [products, searchQuery]);
+
+  // 当搜索词改变时，重置页码到第一页
+  useEffect(() => {
+    setReasonPage(1);
+    setProductPage(1);
+  }, [searchQuery]);
+
+  // --- 异步保存 ---
   const saveReasonsAsync = async (list: KeywordRule[], newCategory?: string) => {
     try {
       await fetch(API_BASE + '/api/excel/rules/reasons', {
@@ -106,7 +132,6 @@ export default function KeywordsAdminPage() {
     }
   };
 
-  // 异步保存品类
   const saveProductsAsync = async (list: KeywordRule[], newIdx?: number) => {
     try {
       await fetch(API_BASE + '/api/excel/rules/products', {
@@ -248,13 +273,13 @@ export default function KeywordsAdminPage() {
 
   const reasonsPaged = useMemo(() => {
     const start = (reasonPage - 1) * PAGE_SIZE;
-    return { data: reasons.slice(start, start + PAGE_SIZE), total: reasons.length, pages: Math.ceil(reasons.length / PAGE_SIZE) };
-  }, [reasons, reasonPage]);
+    return { data: filteredReasons.slice(start, start + PAGE_SIZE), total: filteredReasons.length, pages: Math.ceil(filteredReasons.length / PAGE_SIZE) };
+  }, [filteredReasons, reasonPage]);
 
   const productsPaged = useMemo(() => {
     const start = (productPage - 1) * PAGE_SIZE;
-    return { data: products.slice(start, start + PAGE_SIZE), total: products.length, pages: Math.ceil(products.length / PAGE_SIZE) };
-  }, [products, productPage]);
+    return { data: filteredProducts.slice(start, start + PAGE_SIZE), total: filteredProducts.length, pages: Math.ceil(filteredProducts.length / PAGE_SIZE) };
+  }, [filteredProducts, productPage]);
 
   const loadRules = useCallback(async () => {
     try {
@@ -294,7 +319,7 @@ export default function KeywordsAdminPage() {
     }, 350);
   };
 
-  // 导入规则（保持原有同步模式，因为涉及文件上传，不可乐观）
+  // 导入规则
   const handleImportRules = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -461,13 +486,17 @@ export default function KeywordsAdminPage() {
         {/* Header */}
         <div className='flex items-center justify-between mb-6'>
           <div className='flex items-center gap-4'>
-            <Link href='/'>
+            <a href='/'>
               <Button variant='ghost' size='sm' className="transition-all duration-300 ease-out hover:bg-muted/50 active:scale-95 hover:-translate-y-px">
                 <ArrowLeft className='h-4 w-4 mr-1' />
                 返回
               </Button>
-            </Link>
-            <h1 className='text-xl font-bold bg-gradient-to-r from-primary to-primary/70 bg-clip-text text-transparent transition-all duration-500 hover:scale-[1.02]'>
+            </a>
+            {/* 更新为秀气的楷体字，搭配恰当的间距与柔和色彩 */}
+            <h1 
+              className='text-2xl font-medium tracking-[0.15em] text-primary/80 transition-all duration-500 hover:scale-[1.02]' 
+              style={{ fontFamily: '"楷体", "KaiTi", "Songti SC", "SimSun", serif' }}
+            >
               后台管理 - 关键词规则
             </h1>
           </div>
@@ -492,7 +521,7 @@ export default function KeywordsAdminPage() {
           </div>
         </div>
 
-        {/* Alerts */}
+        {/* 顶部警告/成功提示区 */}
         {success && (
           <div className={`flex items-center gap-2 text-green-600 text-sm bg-green-50 p-3 rounded-lg mb-4 transition-opacity duration-500 ease-out ${fadingOut ? 'opacity-0' : 'opacity-100 success-pop'}`}>
             <CheckCircle2 className='h-4 w-4' />
@@ -508,6 +537,7 @@ export default function KeywordsAdminPage() {
             </Button>
           </div>
         )}
+   
 
         {/* Loading Skeleton */}
         {loading ? (
@@ -523,12 +553,34 @@ export default function KeywordsAdminPage() {
           <Tabs value={activeTab} onValueChange={(v) => { setActiveTab(v); setReasonPage(1); setProductPage(1); }}>
             <TabsList className='mb-4'>
               <TabsTrigger value='reasons' className="tab-underline transition-all duration-300 ease-out data-[state=active]:shadow-sm">
-                售后原因 (<span className="number-pop">{reasons.length}</span>)
+                售后原因 (<span className="number-pop">{filteredReasons.length}</span>)
               </TabsTrigger>
               <TabsTrigger value='products' className="tab-underline transition-all duration-300 ease-out data-[state=active]:shadow-sm">
-                品类 (<span className="number-pop">{products.length}</span>)
+                品类 (<span className="number-pop">{filteredProducts.length}</span>)
               </TabsTrigger>
             </TabsList>
+  {/* 搜索栏 */}
+        {!loading && (
+          <div className="relative mb-6 group max-w-sm animate-fadeIn">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground group-focus-within:text-primary transition-colors duration-300" />
+            <Input
+              placeholder="搜索分类名称或关键词..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="!pl-11 h-10 w-full rounded-full border-muted-foreground/20 bg-muted/5 focus:bg-background focus:ring-2 focus:ring-primary/20 transition-all duration-300 input-glow shadow-sm"
+            />
+            {searchQuery && (
+              <Button
+                variant="ghost"
+                size="sm"
+                className="absolute right-1 top-1/2 -translate-y-1/2 h-8 w-8 p-0 rounded-full hover:bg-muted"
+                onClick={() => setSearchQuery('')}
+              >
+                <X className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            )}
+          </div>
+        )}
 
             <TabsContent value='reasons'>
               <div className="animate-fadeIn" key="reasons-content">
@@ -539,6 +591,7 @@ export default function KeywordsAdminPage() {
                       分类用关键词匹配，多个关键词用 - 分隔（如：变质-发酸-异味）
                     </CardDescription>
                   </CardHeader>
+
                   <CardContent>
                     <Table>
                       <TableHeader>
@@ -548,6 +601,7 @@ export default function KeywordsAdminPage() {
                           <TableHead className='w-[120px] text-right text-sm'>操作</TableHead>
                         </TableRow>
                       </TableHeader>
+
                       <TableBody>
                         {reasonsPaged.data.map((item, idx) => (
                           <TableRow
@@ -567,16 +621,16 @@ export default function KeywordsAdminPage() {
                             </TableCell>
                           </TableRow>
                         ))}
-                        {reasons.length === 0 && (
+                        {filteredReasons.length === 0 && (
                           <TableRow>
                             <TableCell colSpan={3} className='text-center text-muted-foreground py-8 text-sm'>
-                              暂无规则，点击 新增规则或导入规则Excel
+                              {searchQuery ? '无匹配规则，请尝试更换搜索词' : '暂无规则，点击新增规则或导入规则Excel'}
                             </TableCell>
                           </TableRow>
                         )}
                       </TableBody>
                     </Table>
-                    <PaginationBar page={reasonPage} pages={reasonsPaged.pages} onPrev={() => setReasonPage(p => Math.max(1, p - 1))} onNext={() => setReasonPage(p => p + 1)} label={`共 ${reasons.length} 条，第 ${reasonPage}/${reasonsPaged.pages} 页`} />
+                    <PaginationBar page={reasonPage} pages={reasonsPaged.pages} onPrev={() => setReasonPage(p => Math.max(1, p - 1))} onNext={() => setReasonPage(p => p + 1)} label={`共 ${filteredReasons.length} 条，第 ${reasonPage}/${reasonsPaged.pages} 页`} />
                   </CardContent>
                 </Card>
               </div>
@@ -622,16 +676,16 @@ export default function KeywordsAdminPage() {
                             </TableRow>
                           );
                         })}
-                        {products.length === 0 && (
+                        {filteredProducts.length === 0 && (
                           <TableRow>
                             <TableCell colSpan={3} className='text-center text-muted-foreground py-8 text-sm'>
-                              暂无规则，点击新增规则或导入规则Excel
+                              {searchQuery ? '无匹配规则，请尝试更换搜索词' : '暂无规则，点击新增规则或导入规则Excel'}
                             </TableCell>
                           </TableRow>
                         )}
                       </TableBody>
                     </Table>
-                    <PaginationBar page={productPage} pages={productsPaged.pages} onPrev={() => setProductPage(p => Math.max(1, p - 1))} onNext={() => setProductPage(p => p + 1)} label={`共 ${products.length} 条，第 ${productPage}/${productsPaged.pages} 页`} />
+                    <PaginationBar page={productPage} pages={productsPaged.pages} onPrev={() => setProductPage(p => Math.max(1, p - 1))} onNext={() => setProductPage(p => p + 1)} label={`共 ${filteredProducts.length} 条，第 ${productPage}/${productsPaged.pages} 页`} />
                   </CardContent>
                 </Card>
               </div>
