@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -44,6 +44,7 @@ import {
   LogOut,
   User,
   KeyRound,
+  AlertCircle,
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import {
@@ -76,9 +77,8 @@ export default function Home() {
   const [mounted, setMounted] = useState(false);
   const [logoutConfirm, setLogoutConfirm] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [changePasswordOpen, setChangePasswordOpen] = useState(false);
-
-  // 客户端挂载后加载数据
   useEffect(() => {
     setMounted(true);
   }, []);
@@ -133,13 +133,12 @@ export default function Home() {
         if (dates.length > 0) {
           setSelectedDate(dates[0]);
         }
-
-        // 将合并后的数据同步回云端
         if (Object.keys(cloudRecords).length < Object.keys(merged).length) {
           await syncToCloud(merged, token);
         }
-      } catch {
-        // 同步失败不阻塞页面
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setSyncError('登录同步失败: ' + msg);
       } finally {
         if (!cancelled) setSyncing(false);
       }
@@ -165,12 +164,13 @@ export default function Home() {
       setSelectedDate(dates[0]);
     }
     // 同步到云端
-    (async () => {
-      try {
+      (async () => {
+        try {
         const token = await getAccessToken();
         if (token) await syncToCloud(newRecords, token);
-      } catch {
-        /* ignore */
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setSyncError('云端同步失败: ' + msg);
       }
     })();
   }, []);
@@ -186,11 +186,12 @@ export default function Home() {
       // 同步到云端
       (async () => {
         try {
-          const token = await getAccessToken();
-          if (token) await syncToCloud(updated, token);
-        } catch {
-          /* ignore */
-        }
+        const token = await getAccessToken();
+        if (token) await syncToCloud(updated, token);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        setSyncError('云端同步失败: ' + msg);
+      }
       })();
     },
     [selectedDate]
@@ -261,7 +262,15 @@ export default function Home() {
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
+
+          {syncError && (
+            <div className="flex items-center gap-2 px-3 py-1.5 text-xs text-destructive bg-destructive/10 rounded-md border border-destructive/20">
+              <AlertCircle className="h-3.5 w-3.5 shrink-0" />
+              <span>{syncError}</span>
+              <button onClick={() => setSyncError(null)} className="ml-1 hover:text-destructive/80">&times;</button>
+            </div>
+          )}
+                    <div className="flex items-center gap-2">
             <Button
               onClick={() => setShareOpen(true)}
               variant="outline"
