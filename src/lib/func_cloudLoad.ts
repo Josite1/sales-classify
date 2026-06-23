@@ -1,6 +1,8 @@
-Ôªøexport async function cloudLoadAllRecords(token: string): Promise<AllRecords> {
+import { AllRecords } from './types';
+
+export async function cloudLoadAllRecords(token: string): Promise<AllRecords> {
   const res = await fetch('/api/user-records/sync', { method: 'GET', headers: { 'x-session': token } });
   const data = await res.json();
-  if (!data.success) throw new Error(data.error || 'ÊãâÂèñÂ§±Ë¥•');
+  if (!data.success) throw new Error(data.error || '¿≠»° ß∞‹');
   return data.records as AllRecords;
 }
