@@ -85,7 +85,7 @@ export function registerBrutalTheme(echarts: any): void {
       lineStyle: {
         width: 2,
       },
-      symbolSize: 6,
+      symbolSize: 8,
     },
     pie: {
       itemStyle: {
@@ -129,7 +129,7 @@ export function getBrutalTooltipDark(): any {
 
 // Common grid configuration
 export function getBrutalGrid(top = 40, right = 16, bottom = 28, left = 48): any {
-  return { top, right, bottom, left, containLabel: false };
+  return { top, right, bottom, left, containLabel: true };
 }
 
 // Common axis configuration

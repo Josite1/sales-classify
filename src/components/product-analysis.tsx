@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { registerBrutalTheme, getBrutalTooltip, getBrutalGrid, getBrutalXAxis, getBrutalYAxis, BRUTAL_COLORS } from '@/lib/echarts-theme';
@@ -1043,8 +1043,7 @@ const isHandGraspCake = useMemo(() => {
                   itemStyle: {
                     color:
                       VIVID_COLORS[(reversed.length - 1 - i) % VIVID_COLORS.length],
-                    borderRadius: [0, 4, 4, 0],
-                  },
+                                      },
                 })),
                 barWidth: '60%',
                 label: {
@@ -1095,8 +1094,7 @@ const isHandGraspCake = useMemo(() => {
                   value: d.value,
                   itemStyle: {
                     color: VIVID_COLORS[i % VIVID_COLORS.length],
-                    borderRadius: [4, 4, 0, 0],
-                  },
+                                      },
                 })),
                 barWidth: '50%',
                 label: {
@@ -1283,8 +1281,7 @@ const isHandGraspCake = useMemo(() => {
               value: d.value,
               itemStyle: {
                 color: FLAG_COLOR_MAP[d.name] || VIVID_COLORS[0],
-                borderRadius: [0, 4, 4, 0],
-              },
+                              },
             })),
             barWidth: '60%',
             label: {
@@ -1364,8 +1361,7 @@ const isHandGraspCake = useMemo(() => {
                   { offset: 0, color: VIVID_COLORS[(i + 2) % VIVID_COLORS.length] },
                   { offset: 1, color: VIVID_COLORS[(i + 3) % VIVID_COLORS.length] },
                 ]),
-                borderRadius: [0, 4, 4, 0],
-              },
+                              },
             })),
             barWidth: '60%',
             label: {
@@ -1390,7 +1386,7 @@ const isHandGraspCake = useMemo(() => {
   // ========== 渲染 ==========
   if (allProductNames.length === 0) {
     return (
-      <Card className="rounded-xl shadow-sm">
+      <Card className="brutal-card-lift rounded-xl shadow-sm">
         <CardContent className="flex items-center justify-center py-16 text-muted-foreground">
           <p className="text-sm">该日期记录中暂无产品数据</p>
         </CardContent>
@@ -1425,7 +1421,7 @@ const isHandGraspCake = useMemo(() => {
     <div ref={containerRef} className="space-y-6">
       {/* 筛选区 */}
       <div className="sticky top-0 z-30 pb-2 -mt-2 pt-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <Card className="border-primary/20 shadow-sm rounded-xl overflow-hidden transition-all">
+        <Card className="brutal-card-lift border-primary/20 shadow-sm rounded-xl overflow-hidden transition-all">
           <CardContent className="pt-4 pb-4">
             <div className="flex flex-col gap-3.5">
               <div className="flex items-center justify-between gap-3 flex-wrap">
@@ -1490,7 +1486,7 @@ const isHandGraspCake = useMemo(() => {
                     value={aggregateSearch}
                     onChange={(e) => setAggregateSearch(e.target.value)}
                     placeholder="搜索店铺/产品..."
-                    className="h-8 pl-9 pr-[72px] text-xs border-dashed border-primary/30 bg-primary/[0.02] focus:border-primary/60 focus:ring-1 focus:ring-primary/20 focus:bg-background hover:border-primary/40 transition-all duration-200 rounded-lg"
+                    className="h-8 !pl-9 pr-[72px] text-xs border-dashed border-primary/30 bg-primary/[0.02] focus:border-primary/60 focus:ring-1 focus:ring-primary/20 focus:bg-background hover:border-primary/40 transition-all duration-200 rounded-lg"
                   />
                   <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
                     {aggregateSearch.trim() && (
@@ -1680,7 +1676,7 @@ const isHandGraspCake = useMemo(() => {
 
       {/* 内容区 */}
       {!productData ? (
-        <Card className="rounded-xl shadow-sm">
+        <Card className="brutal-card-lift rounded-xl shadow-sm">
           <CardContent className="flex flex-col items-center justify-center py-16 text-muted-foreground space-y-3">
             <Search className="h-10 w-10 animate-pulse opacity-30" />
             <p className="text-sm">
@@ -1692,7 +1688,7 @@ const isHandGraspCake = useMemo(() => {
         </Card>
       ) : (
         <>
-          <Card className="rounded-xl shadow-sm overflow-hidden border-l-4 border-l-primary/30 transition-shadow hover:shadow-md">
+          <Card className="brutal-card-lift rounded-xl shadow-sm overflow-hidden border-l-4 border-l-primary/30 transition-shadow hover:shadow-md">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div>
@@ -1748,7 +1744,7 @@ const isHandGraspCake = useMemo(() => {
           </Card>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-6">
-            <Card className="rounded-xl shadow-sm border-t-4 border-t-emerald-400/60 transition-shadow hover:shadow-md">
+            <Card className="brutal-card-lift rounded-xl shadow-sm border-t-4 border-t-emerald-400/60 transition-shadow hover:shadow-md">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -1788,7 +1784,7 @@ const isHandGraspCake = useMemo(() => {
               </CardContent>
             </Card>
 
-            <Card className="rounded-xl shadow-sm border-t-4 border-t-amber-400/60 transition-shadow hover:shadow-md">
+            <Card className="brutal-card-lift rounded-xl shadow-sm border-t-4 border-t-amber-400/60 transition-shadow hover:shadow-md">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -1824,7 +1820,7 @@ const isHandGraspCake = useMemo(() => {
           </div>
 
           {remarkBarData.length > 0 && (
-            <Card className="mt-6 rounded-xl shadow-sm border-t-4 border-t-red-400/60 transition-shadow hover:shadow-md">
+            <Card className="brutal-card-lift mt-6 rounded-xl shadow-sm border-t-4 border-t-red-400/60 transition-shadow hover:shadow-md">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -1862,7 +1858,7 @@ const isHandGraspCake = useMemo(() => {
             </Card>
           )}
           {otherDetails.length > 0 && (
-  <Card className="mt-6 rounded-xl shadow-sm border-t-4 border-t-orange-400/60 transition-shadow hover:shadow-md">
+  <Card className="brutal-card-lift mt-6 rounded-xl shadow-sm border-t-4 border-t-orange-400/60 transition-shadow hover:shadow-md">
     <CardHeader className="pb-2">
       <div className="flex items-center justify-between">
         <CardTitle className="text-sm font-bold flex items-center gap-2">

@@ -51,13 +51,6 @@ export async function removeDateRecord(date: string): Promise<AllRecords> {
   return loadAllRecords();
 }
 
-export async function updateDateRecord(
-  date: string,
-  data: Record<string, ProductData>,
-): Promise<AllRecords> {
-  return addDateRecord(date, data);
-}
-
 // ---- Aliases ----
 
 export async function loadProductAliases(): Promise<ProductAliases> {

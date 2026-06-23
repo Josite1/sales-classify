@@ -3,9 +3,8 @@ Excel data processor: reads sales Excel + rules Excel, outputs classified JSON.
 Ported from 2.py SalesAnalyzer.
 '''
 import re
-import json
 import io
-from typing import Dict, List, Tuple, Optional
+from typing import Dict, List, Optional
 import pandas as pd
 
 

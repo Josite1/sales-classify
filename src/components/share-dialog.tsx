@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useCallback } from 'react';
 import {
@@ -254,7 +254,7 @@ export function ShareDialog({ open, onOpenChange, records, aliases }: ShareDialo
                       placeholder="至少4位密码"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
-                      className="pl-9 h-9"
+                      className="!pl-9 h-9"
                     />
                   </div>
                   <p className="text-xs text-muted-foreground">对方需要输入此密码才能查看数据</p>

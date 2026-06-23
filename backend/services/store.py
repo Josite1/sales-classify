@@ -1,7 +1,7 @@
 ﻿'''
 Core business logic: computations, aggregations, merges.
 '''
-from typing import Dict, Optional, Tuple, List
+from typing import Dict, List
 from collections import defaultdict
 from utils.helpers import get_iso_week_label, get_week_monday, get_week_sunday
 

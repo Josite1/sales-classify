@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useRef, useEffect, useMemo, useState, useCallback } from 'react';
 import { registerBrutalTheme, getBrutalTooltip, getBrutalGrid, getBrutalXAxis, getBrutalYAxis, BRUTAL_COLORS } from '@/lib/echarts-theme';
@@ -125,7 +125,7 @@ function getOrCreateChart(
   return chartRef.current;
 }
 
-/* ========== 多选下拉组件 ========== */
+/* ========== 多选下拉组件（含动画） ========== */
 function MultiSelect({
   title,
   options,
@@ -155,26 +155,30 @@ function MultiSelect({
             highlighted
               ? 'border-primary/60 ring-1 ring-primary/25 shadow-sm shadow-primary/10'
               : ''
-          } ${open ? 'border-primary/50 bg-primary/5' : ''}`}
+          } ${open ? 'border-primary/50 bg-primary/5' : ''} animate-fade-in`}
         >
           <div className="flex items-center gap-1.5 text-xs">
-            {iconType === 'shop' ? (   <Store className={`h-3 w-3 ${highlighted ? 'text-primary' : 'text-muted-foreground'}`} /> ) : (   <Package className={`h-3 w-3 ${highlighted ? 'text-primary' : 'text-muted-foreground'}`} /> )}
+            {iconType === 'shop' ? (
+              <Store className={`h-3 w-3 ${highlighted ? 'text-primary' : 'text-muted-foreground'}`} />
+            ) : (
+              <Package className={`h-3 w-3 ${highlighted ? 'text-primary' : 'text-muted-foreground'}`} />
+            )}
             <span className={`font-medium ${highlighted ? 'text-primary' : 'text-muted-foreground'}`}>
               {title}
             </span>
             {selected.length > 0 && (
               <Badge
                 variant="secondary"
-                className="ml-1 px-1.5 py-0 h-4 text-[10px] rounded-sm font-bold bg-primary/10 text-primary"
+                className="ml-1 px-1.5 py-0 h-4 text-[10px] rounded-sm font-bold bg-primary/10 text-primary animate-pop"
               >
                 {selected.length}
               </Badge>
             )}
           </div>
-          <ChevronsUpDown className={`h-3 w-3 shrink-0 ${open ? 'text-primary' : 'opacity-50'}`} />
+          <ChevronsUpDown className={`h-3 w-3 shrink-0 transition-transform duration-200 ${open ? 'rotate-180 text-primary' : 'opacity-50'}`} />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[260px] p-0 shadow-lg border-primary/10" align="start">
+      <PopoverContent className="w-[260px] p-0 shadow-lg border-primary/10 animate-slide-up" align="start">
         <Command>
           <CommandInput placeholder={placeholder} className="h-9 text-xs" />
           <CommandList className="max-h-[220px]">
@@ -196,22 +200,22 @@ function MultiSelect({
                         onChange([...selected, opt.value]);
                       }
                     }}
-                    className="text-xs flex items-center gap-2.5 cursor-pointer py-1.5"
+                    className="text-xs flex items-center gap-2.5 cursor-pointer py-1.5 transition-colors duration-150"
                   >
                     <div
-                      className={`flex h-4 w-4 items-center justify-center rounded-sm border shrink-0 transition-colors ${
+                      className={`flex h-4 w-4 items-center justify-center rounded-sm border shrink-0 transition-all duration-200 ${
                         isSelected
-                          ? 'bg-primary border-primary text-primary-foreground'
+                          ? 'bg-primary border-primary text-primary-foreground scale-110'
                           : 'border-input opacity-50'
                       }`}
                     >
-                      {isSelected && <Check className="h-3 w-3" />}
+                      {isSelected && <Check className="h-3 w-3 animate-check" />}
                     </div>
                     <ItemIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     <span className="flex-1 truncate">{opt.label}</span>
                     <Badge
                       variant={isZero ? 'outline' : 'secondary'}
-                      className={`ml-auto px-1.5 py-0 h-4 text-[10px] font-mono tabular-nums shrink-0 ${
+                      className={`ml-auto px-1.5 py-0 h-4 text-[10px] font-mono tabular-nums shrink-0 transition-all duration-300 ${
                         isZero
                           ? 'border-yellow-300 bg-yellow-50 text-yellow-700'
                           : ''
@@ -435,7 +439,7 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases }: Week
     setDebouncedSearch('');
   }, []);
 
-  // ==================== 核心修正：computeDaySummary ====================
+  // ==================== computeDaySummary ====================
   const computeDaySummary = useCallback(
     (dateStr: string, record: AllRecords[string] | undefined, selProds: string[], selShops: string[]) => {
       const empty = {
@@ -465,7 +469,6 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases }: Week
         const shopStats = pData['店铺分类'] || {};
 
         if (selShops.length > 0) {
-          // 筛选店铺
           Object.entries(shopStats).forEach(([flag, shopsInFlag]) => {
             if (!shopsInFlag || typeof shopsInFlag !== 'object') return;
             let flagCount = 0;
@@ -475,7 +478,6 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases }: Week
               if (count === 0) return;
               flagCount += count;
 
-              // 仅红色旗子聚合原因（直接使用店铺的客服备注分类）
               if (flag === '红色旗子' && typeof shopVal === 'object' && shopVal !== null) {
                 const shop = shopVal as ShopItem;
                 if (shop.客服备注分类) {
@@ -497,7 +499,6 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases }: Week
             else if (flag === '灰色旗子') pGrey += flagCount;
           });
         } else {
-          // 无店铺筛选：产品整体数据
           pTotal = getProductTotal(pData);
           const flags = getFlags(pData);
           pRed = flags['红色旗子'] || 0;
@@ -634,11 +635,11 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases }: Week
   }, [dailyData]);
 
   // Register brutalist theme once
-if (typeof window !== 'undefined') {
-  registerBrutalTheme(echarts);
-}
+  if (typeof window !== 'undefined') {
+    registerBrutalTheme(echarts);
+  }
 
-const tooltipStyle = getBrutalTooltip();
+  const tooltipStyle = getBrutalTooltip();
 
   // ResizeObserver
   useEffect(() => {
@@ -699,7 +700,6 @@ const tooltipStyle = getBrutalTooltip();
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
               { offset: 0, color: '#14b8a6' }, { offset: 1, color: '#0d9488' }
             ]),
-            borderRadius: [6, 6, 0, 0],
           },
           label: { show: true, position: 'top', fontSize: 11, fontWeight: 'bold', color: '#059669', formatter: '{c}' },
           data: dailyData.map(d => d.totalOrders),
@@ -707,7 +707,7 @@ const tooltipStyle = getBrutalTooltip();
         {
           name: '红旗标记数',
           type: 'line', smooth: true, symbol: 'circle', symbolSize: 8,
-          lineStyle: { width: 3, color: '#ef4444' },
+          lineStyle: { width: 2, color: '#ef4444' },
           itemStyle: { color: '#ef4444', borderWidth: 2, borderColor: '#fff' },
           areaStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
@@ -720,7 +720,7 @@ const tooltipStyle = getBrutalTooltip();
         {
           name: '绿色旗子',
           type: 'line', smooth: true, symbol: 'circle', symbolSize: 7,
-          lineStyle: { width: 3, color: '#22c55e' },
+          lineStyle: { width: 2, color: '#22c55e' },
           itemStyle: { color: '#22c55e', borderWidth: 2, borderColor: '#fff' },
           areaStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
@@ -733,7 +733,7 @@ const tooltipStyle = getBrutalTooltip();
         {
           name: '灰色旗子',
           type: 'line', smooth: true, symbol: 'circle', symbolSize: 7,
-          lineStyle: { width: 3, color: '#94a3b8' },
+          lineStyle: { width: 2, color: '#94a3b8' },
           itemStyle: { color: '#94a3b8', borderWidth: 2, borderColor: '#fff' },
           areaStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
@@ -797,7 +797,7 @@ const tooltipStyle = getBrutalTooltip();
         return {
           name: name.length > 10 ? name.slice(0, 10) + '...' : name,
           type: 'line', smooth: true, symbol: 'circle', symbolSize: 7,
-          lineStyle: { width: 3, color: c },
+          lineStyle: { width: 2, color: c },
           itemStyle: { color: c, borderWidth: 2, borderColor: '#fff' },
           emphasis: { lineStyle: { width: 5 } },
           areaStyle: displayProducts.length === 1 ? {
@@ -883,7 +883,7 @@ const tooltipStyle = getBrutalTooltip();
 
   if (Object.keys(records).length === 0) {
     return (
-      <Card>
+      <Card className="animate-fade-in-up">
         <CardContent className="flex items-center justify-center py-16 text-muted-foreground">
           <div className="text-center">
             <TrendingUp className="h-10 w-10 mx-auto mb-3 opacity-40" />
@@ -904,18 +904,111 @@ const tooltipStyle = getBrutalTooltip();
 
   return (
     <div ref={containerRef} className="space-y-6">
+      {/* ========== 注入动画样式 ========== */}
+      <style>{`
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes fadeIn {
+          from { opacity: 0; }
+          to { opacity: 1; }
+        }
+        @keyframes scaleIn {
+          from { opacity: 0; transform: scale(0.92); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pop {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.15); }
+          100% { transform: scale(1); }
+        }
+        @keyframes checkDraw {
+          from { stroke-dashoffset: 20; }
+          to { stroke-dashoffset: 0; }
+        }
+        @keyframes ripple {
+          to { transform: scale(4); opacity: 0; }
+        }
+        @keyframes glowPulse {
+          0% { box-shadow: 0 0 0 0 rgba(59,130,246,0.3); }
+          100% { box-shadow: 0 0 0 6px rgba(59,130,246,0); }
+        }
+        @keyframes bounceSlow {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+        .animate-fade-in-up {
+          animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .animate-fade-in {
+          animation: fadeIn 0.4s ease-out forwards;
+        }
+        .animate-scale-in {
+          animation: scaleIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .animate-slide-up {
+          animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .animate-pop {
+          animation: pop 0.3s ease-out;
+        }
+        .animate-check {
+          stroke-dasharray: 20;
+          stroke-dashoffset: 20;
+          animation: checkDraw 0.3s ease forwards 0.1s;
+        }
+        .animate-bounce-slow {
+          animation: bounceSlow 2s infinite ease-in-out;
+        }
+        .animate-glow-pulse:focus {
+          animation: glowPulse 1.2s ease-out;
+        }
+        .ripple-btn {
+          position: relative;
+          overflow: hidden;
+        }
+        .ripple-btn::after {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 10px;
+          height: 10px;
+          background: rgba(255,255,255,0.4);
+          opacity: 0;
+          border-radius: 50%;
+          transform: translate(-50%, -50%) scale(1);
+          pointer-events: none;
+        }
+        .ripple-btn:active::after {
+          animation: ripple 0.5s ease-out;
+        }
+        .card-hover-effect {
+          transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .card-hover-effect:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 12px 24px -8px rgba(0,0,0,0.12);
+        }
+      `}</style>
+
       {/* 筛选区 */}
-      <div className="sticky top-0 z-30 pb-2 -mt-2 pt-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <Card className="border-primary/20 shadow-sm overflow-hidden">
+      <div className="sticky top-0 z-30 pb-2 -mt-2 pt-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 animate-fade-in-up">
+        <Card className="card-hover-effect border-primary/20 shadow-sm overflow-hidden">
           <CardContent className="pt-4 pb-4">
             <div className="flex flex-col gap-3.5">
               <div className="flex items-center justify-between gap-3 flex-wrap">
-                <div className="flex items-center gap-0.5 bg-muted/60 p-0.5 rounded-lg">
+                <div className="flex items-center gap-0.5 bg-muted/60 p-0.5 rounded-lg animate-scale-in">
                   {(['week', 'month', 'year', 'custom'] as TimeMode[]).map(mode => (
                     <button
                       key={mode}
                       onClick={() => setTimeMode(mode)}
-                      className={`relative px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${
+                      className={`relative px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ripple-btn ${
                         timeMode === mode
                           ? 'bg-background text-foreground shadow-sm'
                           : 'text-muted-foreground hover:text-foreground hover:bg-background/40'
@@ -927,15 +1020,15 @@ const tooltipStyle = getBrutalTooltip();
                 </div>
 
                 {timeMode === 'custom' && (
-                  <div className="flex items-center gap-2">
-                    <Input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="h-7 text-xs w-[130px] font-mono" />
+                  <div className="flex items-center gap-2 animate-fade-in-up">
+                    <Input type="date" value={customStart} onChange={e => setCustomStart(e.target.value)} className="h-7 text-xs w-[130px] font-mono animate-glow-pulse" />
                     <span className="text-xs text-muted-foreground">~</span>
-                    <Input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="h-7 text-xs w-[130px] font-mono" />
+                    <Input type="date" value={customEnd} onChange={e => setCustomEnd(e.target.value)} className="h-7 text-xs w-[130px] font-mono animate-glow-pulse" />
                   </div>
                 )}
 
                 {dateRange && (
-                  <Badge variant="outline" className="text-xs tabular-nums font-mono ml-auto bg-background border-primary/15 text-primary/80">
+                  <Badge variant="outline" className="text-xs tabular-nums font-mono ml-auto bg-background border-primary/15 text-primary/80 animate-fade-in-up">
                     {dateRange.start} ~ {dateRange.end}
                   </Badge>
                 )}
@@ -953,17 +1046,17 @@ const tooltipStyle = getBrutalTooltip();
                     value={aggregateSearch}
                     onChange={e => setAggregateSearch(e.target.value)}
                     placeholder="输入关键词，自动匹配店铺和产品..."
-                    className="h-8 pl-9 pr-[72px] text-xs border-dashed border-primary/30 bg-primary/[0.02] focus:border-primary/60 focus:ring-1 focus:ring-primary/20 focus:bg-background hover:border-primary/40 transition-all duration-200"
+                    className="h-8 !pl-9 pr-[72px] text-xs border-dashed border-primary/30 bg-primary/[0.02] focus:border-primary/60 focus:ring-1 focus:ring-primary/20 focus:bg-background hover:border-primary/40 transition-all duration-200 animate-glow-pulse"
                   />
                   <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
                     {aggregateSearch.trim() && (
                       <>
                         {aggregateMatchCount > 0 && (
-                          <Badge variant="secondary" className="h-5 px-1.5 text-[10px] rounded-sm font-bold bg-primary/10 text-primary">
+                          <Badge variant="secondary" className="h-5 px-1.5 text-[10px] rounded-sm font-bold bg-primary/10 text-primary animate-pop">
                             {aggregateMatchCount}
                           </Badge>
                         )}
-                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0 hover:bg-muted/60 rounded-full" onClick={handleClearSearch}>
+                        <Button variant="ghost" size="sm" className="h-5 w-5 p-0 hover:bg-muted/60 rounded-full transition-transform duration-200 hover:rotate-90" onClick={handleClearSearch}>
                           <X className="h-3 w-3 text-muted-foreground" />
                         </Button>
                       </>
@@ -981,7 +1074,7 @@ const tooltipStyle = getBrutalTooltip();
                 <MultiSelect title="产品" placeholder="搜索产品名称..." options={productOptions} selected={selectedProducts} onChange={setSelectedProducts} highlighted={isAggregateSearchActive} iconType="product" />
 
                 {(selectedProducts.length > 0 || selectedShops.length > 0 || aggregateSearch.trim()) && (
-                  <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 ml-1 shrink-0" onClick={handleClearAll}>
+                  <Button variant="ghost" size="sm" className="h-8 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 ml-1 shrink-0 transition-all duration-200 animate-fade-in-up" onClick={handleClearAll}>
                     <X className="h-3.5 w-3.5 mr-1" />清空筛选
                   </Button>
                 )}
@@ -992,25 +1085,25 @@ const tooltipStyle = getBrutalTooltip();
       </div>
 
       {!dateRange || dailyData.length === 0 ? (
-        <Card>
+        <Card className="animate-fade-in-up">
           <CardContent className="flex items-center justify-center py-16 text-muted-foreground">
             <p className="text-sm">当前筛选条件下暂无数据</p>
           </CardContent>
         </Card>
       ) : (
         <>
-          <Card>
+          <Card className="card-hover-effect animate-slide-up" style={{ animationDelay: '0.1s' }}>
             <CardHeader className="pb-2">
               <CardTitle className="text-base font-bold flex items-center gap-2">
-                <BarChart3 className="h-4 w-4 text-primary" />
+                <BarChart3 className="h-4 w-4 text-primary animate-bounce-slow" />
                 {timeMode === 'week' ? '当周每日趋势' : timeMode === 'month' ? '当月按周趋势' : timeMode === 'year' ? '当年按月趋势' : '自定义时段趋势'}
                 {selectedProducts.length === 1 && (
-                  <Badge variant="secondary" className="ml-2 text-xs">
+                  <Badge variant="secondary" className="ml-2 text-xs animate-pop">
                     {getProductDisplayName(selectedProducts[0], aliases)}
                   </Badge>
                 )}
                 {selectedShops.length ===1 && (
-                  <Badge variant="secondary" className="ml-2 text-xs">
+                  <Badge variant="secondary" className="ml-2 text-xs animate-pop">
                    {selectedShops[0]}
                   </Badge>
                 )}
@@ -1025,10 +1118,10 @@ const tooltipStyle = getBrutalTooltip();
           </Card>
 
           {topProducts.length > 0 && (
-            <Card>
+            <Card className="card-hover-effect animate-slide-up" style={{ animationDelay: '0.2s' }}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-bold flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-primary" />
+                  <TrendingUp className="h-4 w-4 text-primary animate-bounce-slow" />
                   {selectedProducts.length > 0 ? `已选 ${selectedProducts.length} 产品趋势` : `Top ${topProducts.length} 产品趋势`}
                 </CardTitle>
                 <CardDescription className="text-xs mt-1">
@@ -1042,7 +1135,7 @@ const tooltipStyle = getBrutalTooltip();
           )}
 
           {topReasons.length > 0 && (
-            <Card>
+            <Card className="card-hover-effect animate-slide-up" style={{ animationDelay: '0.3s' }}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base font-bold flex items-center gap-2">
                   异常归因变化 (Top {topReasons.length})

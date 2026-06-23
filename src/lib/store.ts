@@ -84,10 +84,12 @@ export function getProductDisplayName(originalName: string, aliases: ProductAlia
 /** 更新某日期的 JSON 数据 */
 export function updateDateRecord(date: string, data: Record<string, ProductData>): AllRecords {
   const records = loadAllRecords();
-  if (records[date]) {
-    records[date].data = data;
-    saveAllRecords(records);
-  }
+  records[date] = {
+    date,
+    data,
+    importedAt: Date.now(),
+  };
+  saveAllRecords(records);
   return records;
 }
 

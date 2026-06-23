@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter } from 'next/navigation';
@@ -111,10 +111,6 @@ export default function Home() {
     if (!mounted || !isAuthenticated || authLoading) return;
 
     // 设置当前用户，确保 localStorage 按用户隔离
-    if (user?.id) {
-      setActiveUser(user.id);
-    }
-
     let cancelled = false;
     (async () => {
       try {
@@ -236,7 +232,7 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       {/* 顶部导航 */}
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border">
+      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-lg border-b border-border animate-fade-in">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="bg-gradient-to-br from-primary to-emerald-600 text-primary-foreground p-2 rounded-lg shadow-md">
@@ -374,7 +370,7 @@ export default function Home() {
                 </TabsList>
 
                 <div className="flex-1 overflow-y-auto scrollbar-visible">
-                  <TabsContent value="overview">
+                  <TabsContent value="overview" className="tab-content-enter">
                     {selectedDate ? (
                       <DayOverview records={records} selectedDate={selectedDate} />
                     ) : (
@@ -384,19 +380,19 @@ export default function Home() {
                     )}
                   </TabsContent>
 
-                  <TabsContent value="trend">
+                  <TabsContent value="trend" className="tab-content-enter">
                     <WeeklyTrendChart records={records} selectedDate={selectedDate} />
                   </TabsContent>
 
-                  <TabsContent value="product">
+                  <TabsContent value="product" className="tab-content-enter">
                     <ProductAnalysis records={records} selectedDate={selectedDate} />
                   </TabsContent>
 
-                  <TabsContent value="region">
+                  <TabsContent value="region" className="tab-content-enter">
                     <RegionDistribution records={records} selectedDate={selectedDate} />
                   </TabsContent>
 
-                  <TabsContent value="shop">
+                  <TabsContent value="shop" className="tab-content-enter">
                     <ShopDistribution records={records} selectedDate={selectedDate} />
                   </TabsContent>
                 </div>
@@ -406,7 +402,7 @@ export default function Home() {
         )}
       </main>
 
-      <footer className="border-t border-border mt-8 py-6">
+      <footer className="border-t border-border mt-8 py-6 animate-fade-in delay-2">
         <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between text-xs text-muted-foreground">
           <p>售后数据看板 &bull; 数据本地+云端存储</p>
           <p className="tabular-nums">{totalDays} 日期记录</p>

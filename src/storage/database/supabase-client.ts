@@ -1,6 +1,6 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 import { execSync } from 'child_process';
-import { getReportBuffer, createWrappedFetch } from 'coze-coding-dev-sdk';
+// Telemetry reporting disabled - Coze SDK endpoint unavailable
 
 let envLoaded = false;
 
@@ -104,14 +104,7 @@ function getSupabaseClient(token?: string): SupabaseClient {
   if (token) {
     globalOptions.headers = { Authorization: `Bearer ${token}` };
   }
-  try {
-    const buffer = getReportBuffer();
-    if (buffer) {
-      globalOptions.fetch = createWrappedFetch(buffer, 'supabase');
-    }
-  } catch {
-    // Silent — reporting setup failure should not block client creation
-  }
+  // Telemetry reporting disabled (coze-coding-dev-sdk endpoint 404)
 
   return createClient(url, key, {
     global: globalOptions,

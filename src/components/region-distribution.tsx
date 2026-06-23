@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useRef, useEffect, useState, useMemo } from 'react';
 import { registerBrutalTheme, getBrutalTooltip, getBrutalGrid, getBrutalXAxis, getBrutalYAxis, BRUTAL_COLORS } from '@/lib/echarts-theme';
@@ -709,7 +709,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
   return (
     <div ref={containerRef} className="space-y-4">
       {/* 筛选与控制卡片 */}
-      <Card className="sticky top-0 z-10 bg-background/98 backdrop-blur-md border-primary/10">
+      <Card className="brutal-card-lift sticky top-0 z-10 bg-background/98 backdrop-blur-md border-primary/10">
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div>
@@ -969,7 +969,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
 
       {/* 分布视图 */}
       {viewMode === 'distribution' && (
-        <Card className="border-primary/10">
+        <Card className="brutal-card-lift border-primary/10">
           <CardHeader className="pb-2 border-b border-border/50">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>
@@ -1014,7 +1014,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
 
       {/* 趋势视图 */}
       {viewMode === 'trend' && (
-        <Card className="border-primary/10">
+        <Card className="brutal-card-lift border-primary/10">
           <CardHeader className="pb-2 border-b border-border/50">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>

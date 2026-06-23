@@ -2,8 +2,7 @@
 Excel import and keyword management API routes.
 '''
 import io
-import json
-from typing import Dict, List
+from typing import Dict
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from services.excel_processor import ExcelProcessor
 from utils.database import get_supabase_client

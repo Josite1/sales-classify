@@ -1,4 +1,4 @@
-@import "tailwindcss";
+﻿@import "tailwindcss";
 @import "tw-animate-css";
 
 @theme inline {
@@ -383,7 +383,7 @@ input:not([type="checkbox"]):not([type="radio"]):not(.rdp-input) {
   font-size: 13px !important;
   box-shadow: 2px 2px 0 0 rgb(0 0 0 / 0.1) !important;
   transition: all 0.12s ease !important;
-  padding: 6px 10px !important;
+  padding: 6px 10px;
 }
 [data-slot="input"]:focus,
 input:focus:not([type="checkbox"]):not([type="radio"]) {
@@ -417,7 +417,7 @@ input:focus:not([type="checkbox"]):not([type="radio"]) {
   border-radius: 0 !important;
   font-family: inherit !important;
   font-size: 12px !important;
-  padding: 6px 10px !important;
+  padding: 6px 10px;
 }
 
 /* Textarea */
@@ -471,4 +471,59 @@ textarea:focus {
   font-weight: 600 !important;
   letter-spacing: 0.03em !important;
   text-transform: uppercase !important;
+}
+
+
+/* =============================================
+   Animations
+   ============================================= */
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scaleIn {
+  from { opacity: 0; transform: scale(0.96); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.35s ease both;
+}
+
+.animate-slide-up {
+  animation: slideUp 0.4s ease both;
+}
+
+.animate-scale-in {
+  animation: scaleIn 0.3s ease both;
+}
+
+.delay-1  { animation-delay: 0.05s; }
+.delay-2  { animation-delay: 0.10s; }
+.delay-3  { animation-delay: 0.15s; }
+.delay-4  { animation-delay: 0.20s; }
+.delay-5  { animation-delay: 0.25s; }
+.delay-6  { animation-delay: 0.30s; }
+.delay-7  { animation-delay: 0.35s; }
+.delay-8  { animation-delay: 0.40s; }
+.delay-9  { animation-delay: 0.45s; }
+.delay-10 { animation-delay: 0.50s; }
+
+.tab-content-enter {
+  animation: fadeIn 0.25s ease both;
+}
+
+.brutal-card-lift {
+  transition: box-shadow 0.2s ease, transform 0.2s ease;
+}
+.brutal-card-lift:hover {
+  box-shadow: 6px 6px 0 0 rgb(0 0 0 / 0.15);
+  transform: translate(-2px, -2px);
 }

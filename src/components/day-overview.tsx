@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -28,7 +28,6 @@ import { registerBrutalTheme, getBrutalTooltip, getBrutalGrid, getBrutalXAxis, g
 import * as echarts from 'echarts';
 import type { AllRecords, ProductAliases, ShopItem } from '@/lib/types';
 import {
-
   getProductTotal,
   getProductDisplayName,
   loadProductAliases,
@@ -36,11 +35,11 @@ import {
   getRedFlagReasons,
   getShopCount
 } from '@/lib/store';
+
 // Register brutalist theme
 if (typeof window !== 'undefined') {
   registerBrutalTheme(echarts);
 }
-
 
 type TimeMode = 'day' | 'week' | 'month' | 'year' | 'custom';
 
@@ -49,7 +48,7 @@ interface DayOverviewProps {
   selectedDate: string | null;
 }
 
-// ============ 日期范围工具函数 ============
+// ============ 日期范围工具函数（保持不变） ============
 function getISOWeekRange(dateStr: string): { start: string; end: string } {
   const d = new Date(dateStr);
   const day = d.getDay();
@@ -80,7 +79,7 @@ function getYearRange(dateStr: string): { start: string; end: string } {
   return { start: `${year}-01-01`, end: `${year}-12-31` };
 }
 
-// ============ 多选下拉组件 ============
+// ============ 多选下拉组件（保持不变） ============
 function MultiSelect({
   title,
   options,
@@ -110,26 +109,30 @@ function MultiSelect({
             highlighted
               ? 'border-primary/60 ring-1 ring-primary/25 shadow-sm shadow-primary/10'
               : ''
-          } ${open ? 'border-primary/50 bg-primary/5' : ''}`}
+          } ${open ? 'border-primary/50 bg-primary/5' : ''} animate-fade-in`}
         >
           <div className="flex items-center gap-1.5 text-xs">
-            {iconType === 'shop' ? (   <Store className={`h-3 w-3 ${highlighted ? 'text-primary' : 'text-muted-foreground'}`} /> ) : (   <Package className={`h-3 w-3 ${highlighted ? 'text-primary' : 'text-muted-foreground'}`} /> )}
+            {iconType === 'shop' ? (
+              <Store className={`h-3 w-3 ${highlighted ? 'text-primary' : 'text-muted-foreground'}`} />
+            ) : (
+              <Package className={`h-3 w-3 ${highlighted ? 'text-primary' : 'text-muted-foreground'}`} />
+            )}
             <span className={`font-medium ${highlighted ? 'text-primary' : 'text-muted-foreground'}`}>
               {title}
             </span>
             {selected.length > 0 && (
               <Badge
                 variant="secondary"
-                className="ml-1 px-1.5 py-0 h-4 text-[10px] rounded-sm font-bold bg-primary/10 text-primary"
+                className="ml-1 px-1.5 py-0 h-4 text-[10px] rounded-sm font-bold bg-primary/10 text-primary animate-pop"
               >
                 {selected.length}
               </Badge>
             )}
           </div>
-          <ChevronsUpDown className={`h-3 w-3 shrink-0 ${open ? 'text-primary' : 'opacity-50'}`} />
+          <ChevronsUpDown className={`h-3 w-3 shrink-0 transition-transform duration-200 ${open ? 'rotate-180 text-primary' : 'opacity-50'}`} />
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[260px] p-0 shadow-lg border-primary/10" align="start">
+      <PopoverContent className="w-[260px] p-0 shadow-lg border-primary/10 animate-slide-up" align="start">
         <Command>
           <CommandInput placeholder={placeholder} className="h-9 text-xs" />
           <CommandList className="max-h-[220px]">
@@ -151,22 +154,22 @@ function MultiSelect({
                         onChange([...selected, opt.value]);
                       }
                     }}
-                    className="text-xs flex items-center gap-2.5 cursor-pointer py-1.5"
+                    className="text-xs flex items-center gap-2.5 cursor-pointer py-1.5 transition-colors duration-150"
                   >
                     <div
-                      className={`flex h-4 w-4 items-center justify-center rounded-sm border shrink-0 transition-colors ${
+                      className={`flex h-4 w-4 items-center justify-center rounded-sm border shrink-0 transition-all duration-200 ${
                         isSelected
-                          ? 'bg-primary border-primary text-primary-foreground'
+                          ? 'bg-primary border-primary text-primary-foreground scale-110'
                           : 'border-input opacity-50'
                       }`}
                     >
-                      {isSelected && <Check className="h-3 w-3" />}
+                      {isSelected && <Check className="h-3 w-3 animate-check" />}
                     </div>
                     <ItemIcon className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
                     <span className="flex-1 truncate">{opt.label}</span>
                     <Badge
                       variant={isZero ? 'outline' : 'secondary'}
-                      className={`ml-auto px-1.5 py-0 h-4 text-[10px] font-mono tabular-nums shrink-0 ${
+                      className={`ml-auto px-1.5 py-0 h-4 text-[10px] font-mono tabular-nums shrink-0 transition-all duration-300 ${
                         isZero
                           ? 'border-yellow-300 bg-yellow-50 text-yellow-700'
                           : ''
@@ -185,7 +188,7 @@ function MultiSelect({
   );
 }
 
-// ============ 数据聚合函数 ============
+// ============ 数据聚合函数（保持不变） ============
 interface FilteredSummary {
   totalOrders: number;
   redFlags: number;
@@ -272,7 +275,7 @@ function computeFilteredSummary(
   return { totalOrders, redFlags, productBreakdown, topReasons };
 }
 
-// ============ 产品售后排名柱状图组件 ============
+// ============ 产品售后排名柱状图组件（保持不变） ============
 interface GlobalProductColumnProps {
   products: { originalName: string; name: string; value: number }[];
   dateLabel: string;
@@ -324,7 +327,7 @@ function GlobalProductColumn({ products, dateLabel }: GlobalProductColumnProps) 
             : undefined,
         xAxis: {
           type: 'category',
-          data: products.map((p) => p.name), // 只存储原始产品名
+          data: products.map((p) => p.name),
           axisLabel: {
             interval: 0,
             rotate: 30,
@@ -360,14 +363,13 @@ function GlobalProductColumn({ products, dateLabel }: GlobalProductColumnProps) 
               const c = BAR_COLORS[i % BAR_COLORS.length];
               return {
                 value: p.value,
-                name: p.name, // 关键：将产品名传入 series 数据项，tooltip 通过 p.name 获取
+                name: p.name,
                 itemStyle: {
                   color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
                     { offset: 0, color: c },
                     { offset: 0.5, color: c + 'cc' },
                     { offset: 1, color: c + '44' },
                   ]),
-                  borderRadius: [6, 6, 0, 0],
                 },
               };
             }),
@@ -394,10 +396,10 @@ function GlobalProductColumn({ products, dateLabel }: GlobalProductColumnProps) 
   }, [products]);
 
   return (
-    <Card className="border-primary/10 shadow-sm">
+    <Card className="border-primary/10 shadow-sm animate-slide-up">
       <CardHeader className="pb-1 pt-4">
         <CardTitle className="text-sm font-bold flex items-center gap-2">
-          <Trophy className="h-4 w-4 text-amber-500" />
+          <Trophy className="h-4 w-4 text-amber-500 animate-bounce-slow" />
           产品售后排名
           <Badge variant="outline" className="ml-auto text-xs tabular-nums">
             {dateLabel} · {products.length} 产品
@@ -469,7 +471,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
     }
   }, [selectedDate, timeMode, customStart, customEnd]);
 
-  // 动态选项数量，按降序排列（店铺和产品数量互相影响）
+  // 动态选项数量（逻辑不变）
   const { productOptions, shopOptions, allShops, allProducts } = useMemo(() => {
     const productCount: Record<string, number> = {};
     const shopCount: Record<string, number> = {};
@@ -505,13 +507,11 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
     productsSet.forEach((p) => (productCount[p] = 0));
     shopsSet.forEach((s) => (shopCount[s] = 0));
 
-    // 累加计数，考虑筛选依赖
     dates.forEach((d) => {
       const record = records[d];
       Object.entries(record.data).forEach(([pName, pData]) => {
         const shopStats = pData['店铺分类'] || {};
 
-        // 产品计数（受店铺筛选影响）
         if (selectedShops.length > 0) {
           let pTotal = 0;
           Object.entries(shopStats).forEach(([, shopsInFlag]) => {
@@ -527,7 +527,6 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
           productCount[pName] += getProductTotal(pData);
         }
 
-        // 店铺计数（受产品筛选影响）
         if (selectedProducts.length > 0 && !selectedProducts.includes(pName)) {
           return;
         }
@@ -564,7 +563,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
     };
   }, [records, dateRange, selectedProducts, selectedShops, aliases]);
 
-  // 聚合搜索自动选中
+  // 聚合搜索自动选中（逻辑不变）
   useEffect(() => {
     const keyword = debouncedSearch.toLowerCase();
     if (!keyword || allShops.length === 0) return;
@@ -682,7 +681,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
 
   if (!dateRange) {
     return (
-      <Card>
+      <Card className="animate-fade-in">
         <CardContent className="flex items-center justify-center py-16 text-muted-foreground">
           <p className="text-sm">请选择日期查看数据总览</p>
         </CardContent>
@@ -748,9 +747,133 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
 
   return (
     <div className="space-y-4">
+      {/* ========== 注入全局动画样式 ========== */}
+      <style>{`
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(12px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes scaleIn {
+          from { opacity: 0; transform: scale(0.92); }
+          to { opacity: 1; transform: scale(1); }
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(10px); }
+          to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes pop {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.15); }
+          100% { transform: scale(1); }
+        }
+        @keyframes checkDraw {
+          from { stroke-dashoffset: 20; }
+          to { stroke-dashoffset: 0; }
+        }
+        @keyframes ripple {
+          to { transform: scale(4); opacity: 0; }
+        }
+        @keyframes glowPulse {
+          0% { box-shadow: 0 0 0 0 rgba(59,130,246,0.3); }
+          100% { box-shadow: 0 0 0 6px rgba(59,130,246,0); }
+        }
+        @keyframes bounceSlow {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-4px); }
+        }
+        @keyframes shimmer {
+          0% { background-position: -200% 0; }
+          100% { background-position: 200% 0; }
+        }
+        @keyframes numberPop {
+          0% { transform: scale(1); }
+          50% { transform: scale(1.08); color: var(--accent); }
+          100% { transform: scale(1); }
+        }
+        @keyframes borderGlow {
+          0% { border-color: rgba(59,130,246,0.2); }
+          50% { border-color: rgba(59,130,246,0.5); }
+          100% { border-color: rgba(59,130,246,0.2); }
+        }
+        .animate-fade-in-up {
+          animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .animate-scale-in {
+          animation: scaleIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .animate-slide-up {
+          animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+        .animate-pop {
+          animation: pop 0.3s ease-out;
+        }
+        .animate-check {
+          stroke-dasharray: 20;
+          stroke-dashoffset: 20;
+          animation: checkDraw 0.3s ease forwards 0.1s;
+        }
+        .animate-bounce-slow {
+          animation: bounceSlow 2s infinite ease-in-out;
+        }
+        .animate-shimmer {
+          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+          background-size: 200% 100%;
+          animation: shimmer 1.5s infinite;
+        }
+        .animate-glow-pulse:focus {
+          animation: glowPulse 1.2s ease-out;
+        }
+        .animate-number-pop {
+          animation: numberPop 0.4s ease-out;
+        }
+        .animate-border-glow {
+          animation: borderGlow 2s infinite;
+        }
+        .ripple-btn {
+          position: relative;
+          overflow: hidden;
+        }
+        .ripple-btn::after {
+          content: '';
+          position: absolute;
+          top: 50%;
+          left: 50%;
+          width: 10px;
+          height: 10px;
+          background: rgba(255,255,255,0.4);
+          opacity: 0;
+          border-radius: 50%;
+          transform: translate(-50%, -50%) scale(1);
+          pointer-events: none;
+        }
+        .ripple-btn:active::after {
+          animation: ripple 0.5s ease-out;
+        }
+        .card-hover-effect {
+          transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        }
+        .card-hover-effect:hover {
+          transform: translateY(-3px);
+          box-shadow: 0 12px 24px -8px rgba(0,0,0,0.12);
+        }
+        .bg-gradient-card {
+          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
+        }
+        .dark .bg-gradient-card {
+          background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+        }
+        .stat-icon-glow {
+          transition: all 0.3s ease;
+        }
+        .card-hover-effect:hover .stat-icon-glow {
+          transform: scale(1.1);
+          box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.3);
+        }
+      `}</style>
+
       {/* 顶部固定筛选区 */}
-      <div className="sticky top-0 z-30 pb-2 -mt-2 pt-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <Card className="border-primary/20 shadow-sm overflow-hidden">
+      <div className="sticky top-0 z-30 pb-2 -mt-2 pt-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 animate-fade-in-up">
+        <Card className="border-primary/20 shadow-sm overflow-hidden transition-shadow duration-300 hover:shadow-md">
           <CardContent className="pt-4 pb-4">
             <div className="flex flex-col gap-3.5">
               {/* 第一行：时间维度 */}
@@ -763,8 +886,8 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                       key={mode}
                       variant={timeMode === mode ? 'default' : 'outline'}
                       size="sm"
-                      className={`h-7 px-2.5 text-xs transition-all duration-150 ${
-                        timeMode === mode ? 'shadow-sm' : 'hover:bg-muted/60'
+                      className={`h-7 px-2.5 text-xs transition-all duration-150 ripple-btn ${
+                        timeMode === mode ? 'shadow-sm' : 'hover:bg-muted/60 active:scale-95'
                       }`}
                       onClick={() => setTimeMode(mode)}
                     >
@@ -774,26 +897,26 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                 </div>
 
                 {timeMode === 'custom' && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 animate-fade-in-up">
                     <Input
                       type="date"
                       value={customStart}
                       onChange={(e) => setCustomStart(e.target.value)}
-                      className="h-7 text-xs w-[130px] font-mono"
+                      className="h-7 text-xs w-[130px] font-mono animate-glow-pulse"
                     />
                     <span className="text-xs text-muted-foreground">~</span>
                     <Input
                       type="date"
                       value={customEnd}
                       onChange={(e) => setCustomEnd(e.target.value)}
-                      className="h-7 text-xs w-[130px] font-mono"
+                      className="h-7 text-xs w-[130px] font-mono animate-glow-pulse"
                     />
                   </div>
                 )}
 
                 <Badge
                   variant="outline"
-                  className="text-xs tabular-nums font-mono ml-auto bg-background border-primary/15 text-primary/80"
+                  className="text-xs tabular-nums font-mono ml-auto bg-background border-primary/15 text-primary/80 animate-fade-in-up"
                 >
                   {dateRange.start} ~ {dateRange.end}
                 </Badge>
@@ -812,9 +935,9 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                     value={aggregateSearch}
                     onChange={(e) => setAggregateSearch(e.target.value)}
                     placeholder="输入关键词，自动匹配店铺和产品..."
-                    className="h-8 pl-11 pr-[72px] text-xs border-dashed border-primary/30 bg-primary/[0.02]
+                    className="h-8 !pl-11 pr-[72px] text-xs border-dashed border-primary/30 bg-primary/[0.02]
                                focus:border-primary/60 focus:ring-1 focus:ring-primary/20 focus:bg-background
-                               hover:border-primary/40 transition-all duration-200"
+                               hover:border-primary/40 transition-all duration-200 animate-glow-pulse"
                   />
                   <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-1">
                     {aggregateSearch.trim() && (
@@ -822,7 +945,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                         {aggregateMatchCount > 0 && (
                           <Badge
                             variant="secondary"
-                            className="h-5 px-1.5 text-[10px] rounded-sm font-bold bg-primary/10 text-primary"
+                            className="h-5 px-1.5 text-[10px] rounded-sm font-bold bg-primary/10 text-primary animate-pop"
                           >
                             {aggregateMatchCount}
                           </Badge>
@@ -830,7 +953,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-5 w-5 p-0 hover:bg-muted/60 rounded-full"
+                          className="h-5 w-5 p-0 hover:bg-muted/60 rounded-full transition-transform duration-200 hover:rotate-90"
                           onClick={handleClearAggregateSearch}
                         >
                           <X className="h-3 w-3 text-muted-foreground" />
@@ -872,7 +995,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-8 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 ml-1 shrink-0"
+                    className="h-8 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/50 ml-1 shrink-0 transition-all duration-200 animate-fade-in-up"
                     onClick={handleClearAllFilters}
                   >
                     <X className="h-3.5 w-3.5 mr-1" />
@@ -885,9 +1008,9 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
         </Card>
       </div>
 
-      {/* 指标卡片 */}
+      {/* 指标卡片（核心优化区域） */}
       {!summary ? (
-        <Card>
+        <Card className="animate-fade-in-up">
           <CardContent className="flex items-center justify-center py-16 text-muted-foreground">
             <p className="text-sm">当前筛选条件下暂无数据</p>
           </CardContent>
@@ -895,82 +1018,111 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
       ) : (
         <>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {cards.map((card) => {
+            {cards.map((card, idx) => {
               const Icon = card.icon;
 
+              // 通用卡片样式增强
+              const baseCardClass = `
+                overflow-hidden relative card-hover-effect bg-gradient-card
+                border border-opacity-50 rounded-xl
+                transition-all duration-300
+                group
+              `;
+
+              const iconContainerClass = `
+                p-2 rounded-xl stat-icon-glow
+                transition-all duration-300
+                group-hover:scale-110 group-hover:shadow-md
+              `;
+
+              const valueClass = `
+                text-3xl font-black tabular-nums
+                animate-number-pop
+              `;
+
+              // 变化趋势箭头和文字样式
+              const trendBaseClass = "flex items-center gap-1 mt-1 animate-fade-in-up";
+
+              // 特殊处理 Top 异常原因卡片
               if (card.isTopReason) {
                 return (
                   <Card
                     key={card.label}
-                    className="overflow-hidden relative hover:shadow-md transition-shadow duration-200"
-                    style={{ borderLeft: `3px solid ${card.accentColor}` }}
+                    className={baseCardClass}
+                    style={{
+                      borderLeft: `4px solid ${card.accentColor}`,
+                      backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)`
+                    }}
                   >
-                    <CardContent className="pt-4 pb-4">
+                    <CardContent className="pt-5 pb-5">
                       <div className="flex items-center justify-between">
-                        <p className="text-xs text-muted-foreground font-medium">{card.label}</p>
-                        <div
-                          className="p-1.5 rounded-md"
-                          style={{ backgroundColor: card.iconBg }}
-                        >
-                          <Icon className="h-3.5 w-3.5" style={{ color: card.accentColor }} />
+                        <p className="text-xs text-muted-foreground font-medium tracking-wide uppercase">{card.label}</p>
+                        <div className={iconContainerClass} style={{ backgroundColor: card.iconBg }}>
+                          <Icon className="h-4 w-4" style={{ color: card.accentColor }} />
                         </div>
                       </div>
                       {summary.topReasons.length > 0 ? (
-                        <div className="mt-2">
+                        <div className="mt-3">
                           <p
-                            className="text-3xl font-black truncate"
+                            className={`${valueClass} truncate`}
                             style={{ color: card.accentColor }}
                             title={summary.topReasons[0][0]}
                           >
                             {summary.topReasons[0][0]}
                           </p>
-                          <p className="text-xs text-muted-foreground tabular-nums mt-1">
-                            {summary.topReasons[0][1]} 单
-                          </p>
+                          <div className="flex items-center gap-2 mt-2">
+                            <Badge variant="secondary" className="text-xs font-mono" style={{ backgroundColor: card.iconBg, color: card.accentColor, borderColor: 'transparent' }}>
+                              {summary.topReasons[0][1]} 单
+                            </Badge>
+
+                          </div>
                         </div>
                       ) : (
                         <p className="text-sm text-muted-foreground mt-2">无异常</p>
                       )}
                     </CardContent>
+                    {/* 装饰性微光 */}
+                    <div className="absolute -bottom-4 -right-4 w-16 h-16 rounded-full opacity-10 blur-xl" style={{ backgroundColor: card.accentColor }} />
                   </Card>
                 );
               }
 
+              // 普通数值卡片
               return (
                 <Card
                   key={card.label}
-                  className="overflow-hidden relative hover:shadow-md transition-shadow duration-200"
-                  style={{ borderLeft: `3px solid ${card.accentColor}` }}
+                  className={baseCardClass}
+                  style={{
+                    borderLeft: `4px solid ${card.accentColor}`,
+                    backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)`
+                  }}
                 >
-                  <CardContent className="pt-4 pb-4">
+                  <CardContent className="pt-5 pb-5">
                     <div className="flex items-center justify-between">
-                      <p className="text-xs text-muted-foreground font-medium">{card.label}</p>
-                      <div
-                        className="p-1.5 rounded-md"
-                        style={{ backgroundColor: card.iconBg }}
-                      >
-                        <Icon className="h-3.5 w-3.5" style={{ color: card.accentColor }} />
+                      <p className="text-xs text-muted-foreground font-medium tracking-wide uppercase">{card.label}</p>
+                      <div className={iconContainerClass} style={{ backgroundColor: card.iconBg }}>
+                        <Icon className="h-4 w-4" style={{ color: card.accentColor }} />
                       </div>
                     </div>
-                    <div className="mt-2">
+                    <div className="mt-3">
                       <p
-                        className="text-3xl font-black tabular-nums"
+                        className={valueClass}
                         style={{ color: card.accentColor }}
                       >
                         {card.value}
                       </p>
                       {card.change !== null && (
-                        <div className="flex items-center gap-1 mt-1">
+                        <div className={trendBaseClass}>
                           {card.isRedFlag ? (
                             card.changeUp ? (
-                              <TrendingUp className="h-3 w-3 text-destructive" />
+                              <TrendingUp className="h-3.5 w-3.5 text-destructive" />
                             ) : (
-                              <TrendingDown className="h-3 w-3 text-emerald-500" />
+                              <TrendingDown className="h-3.5 w-3.5 text-emerald-500" />
                             )
                           ) : card.changeUp ? (
-                            <TrendingUp className="h-3 w-3 text-destructive" />
+                            <TrendingUp className="h-3.5 w-3.5 text-destructive" />
                           ) : (
-                            <TrendingDown className="h-3 w-3 text-emerald-500" />
+                            <TrendingDown className="h-3.5 w-3.5 text-emerald-500" />
                           )}
                           <span
                             className={`text-xs font-semibold tabular-nums ${
@@ -986,6 +1138,8 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                         </div>
                       )}
                     </div>
+                    {/* 装饰性微光 */}
+                    <div className="absolute -bottom-4 -right-4 w-16 h-16 rounded-full opacity-10 blur-xl" style={{ backgroundColor: card.accentColor }} />
                   </CardContent>
                 </Card>
               );

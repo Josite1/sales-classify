@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useRef, useEffect, useState, useMemo } from 'react';
 import { registerBrutalTheme, getBrutalTooltip, getBrutalGrid, getBrutalXAxis, getBrutalYAxis, BRUTAL_COLORS } from '@/lib/echarts-theme';
@@ -460,7 +460,7 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
             smooth: true,
             symbol: 'circle',
             symbolSize: 7,
-            lineStyle: { width: 2, color: '#14b8a6' },
+            lineStyle: { width: 1.5, color: '#14b8a6' },
             itemStyle: { color: '#14b8a6' },
             areaStyle: {
               color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
@@ -477,7 +477,7 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
             symbol: 'diamond',
             symbolSize: 6,
             yAxisIndex: 1,
-            lineStyle: { width: 2.5, color: '#8b5cf6' },
+            lineStyle: { width: 1.5, color: '#8b5cf6' },
             itemStyle: { color: '#8b5cf6' },
             data: pcts,
           },
@@ -593,7 +593,7 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
   return (
     <div className="space-y-4">
       {/* 筛选控件 */}
-      <Card className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-primary/10">
+      <Card className="brutal-card-lift sticky top-0 z-10 bg-background/95 backdrop-blur-sm border-primary/10">
         <CardHeader className="pb-3">
           <div className="flex items-center justify-between gap-3 flex-wrap">
             <div>
@@ -787,7 +787,7 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
 
       {/* 分布视图 */}
       {viewMode === 'distribution' && (
-        <Card className="border-primary/10">
+        <Card className="brutal-card-lift border-primary/10">
           <CardHeader className="pb-2 border-b border-border/50">
             <div className="flex items-center justify-between">
               <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -827,7 +827,7 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
 
       {/* 趋势视图 */}
       {viewMode === 'trend' && (
-        <Card className="border-primary/10">
+        <Card className="brutal-card-lift border-primary/10">
           <CardHeader className="pb-2 border-b border-border/50">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div>

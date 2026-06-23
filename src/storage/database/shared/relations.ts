@@ -1,3 +1,3 @@
-import { relations } from "drizzle-orm/relations";
-import {  } from "./schema";
+// Relations for shared_records, user_records, etc.
+// Defined in the database schema directly.
 
