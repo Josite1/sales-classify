@@ -98,17 +98,19 @@ function rowsToProductData(
         sQtyDist[sq.quantity_range] = sq.count;
       }
 
-      const sRemarkDist: Record<string, Record<string, RemarkValue>> = {};
+      // 构建店铺的客服备注分类，类型为 Record<string, RemarkValue>
+      const sRemarkDist: Record<string, RemarkValue> = {};
       for (const sr of sRemarks) {
-        if (!sRemarkDist[sr.flag_color]) sRemarkDist[sr.flag_color] = {};
-        sRemarkDist[sr.flag_color][sr.category_name] = sr.count;
+        sRemarkDist[sr.category_name] = sr.count;
       }
 
-      shopDist[s.flag_color][s.shop_name] = {
+      const shopItem: ShopItem = {
         count: s.order_count,
         '数量分布': sQtyDist,
         '客服备注分类': sRemarkDist,
-      } as ShopItem;
+      };
+
+      shopDist[s.flag_color][s.shop_name] = shopItem;
     }
 
     result[prodName] = {
@@ -394,13 +396,11 @@ export async function POST(req: NextRequest) {
               }
             }
 
-            for (const [sFlagColor, sCategories] of Object.entries(original._tempShopRemark)) {
-              if (typeof sCategories === 'object' && sCategories !== null) {
-                for (const [sCatName, sCount] of Object.entries(sCategories)) {
-                  if (typeof sCount === 'number' && sCount > 0) {
-                    shopRemarkInsert.push({ shop_id: shopId, flag_color: sFlagColor, category_name: sCatName, count: sCount });
-                  }
-                }
+            // _tempShopRemark 类型是 Record<string, RemarkValue>
+            const shopRemark = original._tempShopRemark as Record<string, RemarkValue>;
+            for (const [sCatName, sCount] of Object.entries(shopRemark)) {
+              if (typeof sCount === 'number' && sCount > 0) {
+                shopRemarkInsert.push({ shop_id: shopId, flag_color: '', category_name: sCatName, count: sCount });
               }
             }
           }
