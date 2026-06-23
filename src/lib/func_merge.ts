@@ -1,3 +1,5 @@
+import { AllRecords } from './types';
+
 export function mergeRecords(a: AllRecords, b: AllRecords): AllRecords {
   const merged = { ...a };
   for (const [date, record] of Object.entries(b)) {

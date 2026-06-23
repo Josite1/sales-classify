@@ -1,6 +1,8 @@
-Ôªøexport async function cloudSaveAllRecords(records: AllRecords, token: string): Promise<{ synced: number }> {
+import { AllRecords } from './types';
+
+export async function cloudSaveAllRecords(records: AllRecords, token: string): Promise<{ synced: number }> {
   const res = await fetch('/api/user-records/sync', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-session': token }, body: JSON.stringify({ records }) });
   const data = await res.json();
-  if (!data.success) throw new Error(data.error || 'ÂêåÊ≠•Â§±Ë¥•');
+  if (!data.success) throw new Error(data.error || 'Õ¨≤Ω ß∞‹');
   return { synced: data.synced };
 }
