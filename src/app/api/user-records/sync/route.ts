@@ -93,31 +93,30 @@ export async function POST(req: NextRequest) {
 
         // ????
         const flagCounts = productData['\u6807\u65d7\u5206\u7c7b'] || {};
+        const flagBatch: any[] = [];
         for (const [flagColor, count] of Object.entries(flagCounts)) {
           if (typeof count === 'number' && count > 0) {
-            await client.from('product_flags').insert({
-              product_id: productId,
-              flag_color: flagColor,
-              count,
-            });
+            flagBatch.push({ product_id: productId, flag_color: flagColor, count });
           }
+        }
+        if (flagBatch.length > 0) {
+          await client.from('product_flags').insert(flagBatch);
         }
 
         // ????
         const qtyDist = productData['\u6570\u91cf\u5206\u7c7b'] || {};
+        const qtyBatch: any[] = [];
         for (const [flagColor, ranges] of Object.entries(qtyDist)) {
           if (typeof ranges === 'object' && ranges !== null) {
             for (const [range, count] of Object.entries(ranges as Record<string, number>)) {
               if (typeof count === 'number' && count > 0) {
-                await client.from('product_quantity_distributions').insert({
-                  product_id: productId,
-                  flag_color: flagColor,
-                  quantity_range: range,
-                  count,
-                });
+                qtyBatch.push({ product_id: productId, flag_color: flagColor, quantity_range: range, count });
               }
             }
           }
+        }
+        if (qtyBatch.length > 0) {
+          await client.from('product_quantity_distributions').insert(qtyBatch);
         }
 
         // ??????
