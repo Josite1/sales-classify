@@ -1,6 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseClient } from '@/storage/database/supabase-client';
-import type { ProductData, RemarkValue, RemarkOtherValue, ShopItem } from '@/lib/types';
+import type {
+  ProductData,
+  RemarkValue,
+  RemarkOtherValue,
+  RemarkOtherDetail,
+  ShopItem,
+  ShopFlagCategory,
+  ProvinceFlagCategory,
+} from '@/lib/types';
 
 // ==================== 辅助函数 ====================
 function buildMap(data: any[], key: string): Map<string, any[]> {
@@ -36,18 +44,21 @@ function rowsToProductData(
     const provs = provMap.get(prodId) || [];
     const shops = shopMap.get(prodId) || [];
 
+    // 标旗分类
     const flagCounts: Record<string, number> = {};
     for (const f of flags) {
       flagCounts[f.flag_color] = f.count;
     }
 
+    // 数量分类
     const qtyDist: Record<string, Record<string, number>> = {};
     for (const q of qties) {
       if (!qtyDist[q.flag_color]) qtyDist[q.flag_color] = {};
       qtyDist[q.flag_color][q.quantity_range] = q.count;
     }
 
-    const remarkDist: Record<string, Record<string, unknown>> = {};
+    // 客服备注分类
+    const remarkDist: Record<string, Record<string, RemarkValue>> = {};
     for (const r of remarks) {
       if (!remarkDist[r.flag_color]) remarkDist[r.flag_color] = {};
       const otherDetails = otherMap.get(r.id) || [];
@@ -58,20 +69,25 @@ function rowsToProductData(
             '订单号': od.order_no,
             '品类': od.product_type,
             '客服备注': od.remark_text,
-          })),
-        };
+          } as RemarkOtherDetail)),
+        } as RemarkOtherValue;
       } else {
         remarkDist[r.flag_color][r.category_name] = r.count;
       }
     }
 
-    const provDist: Record<string, Record<string, { count: number; town_village: number }>> = {};
+    // 省份分类
+    const provDist: Record<string, ProvinceFlagCategory> = {};
     for (const p of provs) {
       if (!provDist[p.flag_color]) provDist[p.flag_color] = {};
-      provDist[p.flag_color][p.province] = { count: p.order_count, town_village: p.town_village_count };
+      provDist[p.flag_color][p.province] = {
+        count: p.order_count,
+        town_village: p.town_village_count,
+      };
     }
 
-    const shopDist: Record<string, Record<string, unknown>> = {};
+    // 店铺分类
+    const shopDist: Record<string, ShopFlagCategory> = {};
     for (const s of shops) {
       if (!shopDist[s.flag_color]) shopDist[s.flag_color] = {};
       const sQties = shopQtyMap.get(s.id) || [];
@@ -82,7 +98,7 @@ function rowsToProductData(
         sQtyDist[sq.quantity_range] = sq.count;
       }
 
-      const sRemarkDist: Record<string, Record<string, number>> = {};
+      const sRemarkDist: Record<string, Record<string, RemarkValue>> = {};
       for (const sr of sRemarks) {
         if (!sRemarkDist[sr.flag_color]) sRemarkDist[sr.flag_color] = {};
         sRemarkDist[sr.flag_color][sr.category_name] = sr.count;
@@ -92,17 +108,17 @@ function rowsToProductData(
         count: s.order_count,
         '数量分布': sQtyDist,
         '客服备注分类': sRemarkDist,
-      };
+      } as ShopItem;
     }
 
     result[prodName] = {
       total: product.total,
-      '标志分类': flagCounts,
+      '标旗分类': flagCounts,
       '数量分类': qtyDist,
       '客服备注分类': remarkDist,
       '省份分类': provDist,
       '店铺分类': shopDist,
-    } as unknown as ProductData;
+    } as ProductData;
   }
 
   return result;
@@ -167,7 +183,7 @@ export async function POST(req: NextRequest) {
         .map(([, id]) => id);
 
       if (productsToDelete.length > 0) {
-        // 清理子表（若设置级联删除可省略，但显式处理更安全）
+        // 清理子表
         await Promise.all([
           client.from('product_flags').delete().in('product_id', productsToDelete),
           client.from('product_quantity_distributions').delete().in('product_id', productsToDelete),
@@ -240,8 +256,8 @@ export async function POST(req: NextRequest) {
       const shopInsert: any[] = [];
 
       for (const { id: prodId, data } of allProductItems) {
-        // 标志分类
-        const flagCounts = data['标志分类'] || {};
+        // 标旗分类
+        const flagCounts = data['标旗分类'] || {};
         for (const [flagColor, count] of Object.entries(flagCounts)) {
           if (typeof count === 'number' && count > 0) {
             flagsInsert.push({ product_id: prodId, flag_color: flagColor, count });
@@ -264,10 +280,9 @@ export async function POST(req: NextRequest) {
         const remarkCat = data['客服备注分类'] || {};
         for (const [flagColor, categories] of Object.entries(remarkCat)) {
           if (typeof categories === 'object' && categories !== null) {
-            for (const [catName, value] of Object.entries(categories as Record<string, unknown>)) {
-              const isOther = typeof value === 'object' && value !== null && '订单数' in (value as Record<string, unknown>);
-              const remarkVal = value as RemarkValue;
-              const countVal = isOther ? (remarkVal as RemarkOtherValue)['订单数'] : (remarkVal as number);
+            for (const [catName, value] of Object.entries(categories as Record<string, RemarkValue>)) {
+              const isOther = typeof value === 'object' && value !== null && '订单数' in value;
+              const countVal = isOther ? (value as RemarkOtherValue)['订单数'] : value;
               if (typeof countVal !== 'number' || countVal <= 0) continue;
 
               remarkInsert.push({
@@ -275,7 +290,7 @@ export async function POST(req: NextRequest) {
                 flag_color: flagColor,
                 category_name: catName,
                 count: countVal,
-                _tempOther: isOther ? (remarkVal as RemarkOtherValue)['明细'] || [] : null,
+                _tempOther: isOther ? (value as RemarkOtherValue)['明细'] || [] : null,
               });
             }
           }
@@ -285,7 +300,7 @@ export async function POST(req: NextRequest) {
         const provDist = data['省份分类'] || {};
         for (const [flagColor, provinces] of Object.entries(provDist)) {
           if (typeof provinces === 'object' && provinces !== null) {
-            for (const [province, info] of Object.entries(provinces as Record<string, { count: number; town_village: number }>)) {
+            for (const [province, info] of Object.entries(provinces)) {
               if (typeof info === 'object' && info !== null && info.count > 0) {
                 provInsert.push({
                   product_id: prodId,
@@ -303,7 +318,7 @@ export async function POST(req: NextRequest) {
         const shopDist = data['店铺分类'] || {};
         for (const [flagColor, shops] of Object.entries(shopDist)) {
           if (typeof shops === 'object' && shops !== null) {
-            for (const [shopName, shopInfo] of Object.entries(shops as Record<string, unknown>)) {
+            for (const [shopName, shopInfo] of Object.entries(shops)) {
               if (typeof shopInfo !== 'object' || shopInfo === null) continue;
               const shopItem = shopInfo as ShopItem;
               if (!shopItem.count || shopItem.count <= 0) continue;
@@ -381,7 +396,7 @@ export async function POST(req: NextRequest) {
 
             for (const [sFlagColor, sCategories] of Object.entries(original._tempShopRemark)) {
               if (typeof sCategories === 'object' && sCategories !== null) {
-                for (const [sCatName, sCount] of Object.entries(sCategories as Record<string, number>)) {
+                for (const [sCatName, sCount] of Object.entries(sCategories)) {
                   if (typeof sCount === 'number' && sCount > 0) {
                     shopRemarkInsert.push({ shop_id: shopId, flag_color: sFlagColor, category_name: sCatName, count: sCount });
                   }
@@ -452,7 +467,7 @@ export async function GET(req: NextRequest) {
     const productIds = (products || []).map(p => p.id);
 
     if (productIds.length === 0) {
-      const result: any = {};
+      const result: Record<string, { date: string; data: Record<string, ProductData>; importedAt: number }> = {};
       for (const r of records) {
         result[r.record_date] = { date: r.record_date, data: {}, importedAt: r.imported_at };
       }
@@ -482,9 +497,15 @@ export async function GET(req: NextRequest) {
       { data: shopQties },
       { data: shopRemarks },
     ] = await Promise.all([
-      remarkIds.length ? client.from('remark_other_details').select('*').in('remark_category_id', remarkIds) : Promise.resolve({ data: [] }),
-      shopIds.length ? client.from('shop_quantity_distributions').select('*').in('shop_id', shopIds) : Promise.resolve({ data: [] }),
-      shopIds.length ? client.from('shop_remark_categories').select('*').in('shop_id', shopIds) : Promise.resolve({ data: [] }),
+      remarkIds.length
+        ? client.from('remark_other_details').select('*').in('remark_category_id', remarkIds)
+        : Promise.resolve({ data: [] }),
+      shopIds.length
+        ? client.from('shop_quantity_distributions').select('*').in('shop_id', shopIds)
+        : Promise.resolve({ data: [] }),
+      shopIds.length
+        ? client.from('shop_remark_categories').select('*').in('shop_id', shopIds)
+        : Promise.resolve({ data: [] }),
     ]);
 
     // 4. 内存分组
@@ -498,7 +519,7 @@ export async function GET(req: NextRequest) {
     const shopRemarkMap = buildMap(shopRemarks || [], 'shop_id');
 
     // 5. 按日期构建返回结果
-    const result: Record<string, any> = {};
+    const result: Record<string, { date: string; data: Record<string, ProductData>; importedAt: number }> = {};
     for (const record of records) {
       const recProducts = (products || []).filter(p => p.record_id === record.id);
       result[record.record_date] = {
