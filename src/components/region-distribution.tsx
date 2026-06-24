@@ -90,6 +90,21 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('week');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
+
+  // Auto-initialize custom dates when switching to custom mode
+  useEffect(() => {
+    if (timePeriod === 'custom' && selectedDate) {
+      const d = new Date(selectedDate);
+      // Default to the selected date's week range
+      const day = d.getDay();
+      const diffToMonday = day === 0 ? -6 : 1 - day;
+      const monday = new Date(d); monday.setDate(d.getDate() + diffToMonday);
+      const sunday = new Date(monday); sunday.setDate(monday.getDate() + 6);
+      const fmt = (dt: Date) => dt.toISOString().slice(0, 10);
+      setCustomStart(fmt(monday));
+      setCustomEnd(fmt(sunday));
+    }
+  }, [timePeriod, selectedDate]);
   const [viewMode, setViewMode] = useState<ViewMode>('distribution');
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [regionComboOpen, setRegionComboOpen] = useState(false);
