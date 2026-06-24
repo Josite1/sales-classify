@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { MapPin, Search, X, Check, ChevronsUpDown, Map as MapIcon, BarChart3, TrendingUp, CalendarDays } from 'lucide-react';
 import { Calendar } from '@/components/ui/calendar';
 import { format } from 'date-fns';
@@ -368,12 +369,32 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div><CardTitle className="text-base font-bold flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" />地域分布分析</CardTitle><CardDescription className="text-xs mt-1">按省份查看红色旗子售后地域分布</CardDescription></div>
             <div className="flex items-center gap-2 flex-wrap">
-              <div className="flex items-center gap-1.5 bg-muted/60 rounded-lg p-0.5">
-                <Button variant={timePeriod === 'day' ? 'default' : 'ghost'} size="sm" onClick={() => setTimePeriod('day')} className="h-7 text-xs px-2.5">当日</Button>
-                <Button variant={timePeriod === 'week' ? 'default' : 'ghost'} size="sm" onClick={() => setTimePeriod('week')} className="h-7 text-xs px-2.5"><CalendarDays className="h-3.5 w-3.5 mr-1" />当周</Button>
-                <Button variant={timePeriod === 'month' ? 'default' : 'ghost'} size="sm" onClick={() => setTimePeriod('month')} className="h-7 text-xs px-2.5">当月</Button>
-                <Button variant={timePeriod === 'custom' ? 'default' : 'ghost'} size="sm" onClick={() => setTimePeriod('custom')} className="h-7 text-xs px-2.5">自定义</Button>
-              </div>
+              <Select value={timePeriod} onValueChange={(v) => setTimePeriod(v as TimePeriod)}>
+                <SelectTrigger className="h-7 text-xs w-[100px] gap-1 rounded-lg border-primary/20 bg-primary/5">
+                  <CalendarDays className="h-3 w-3 text-primary" />
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="day" className="text-xs">当日</SelectItem>
+                  <SelectItem value="week" className="text-xs">当周</SelectItem>
+                  <SelectItem value="month" className="text-xs">当月</SelectItem>
+                  <SelectItem value="custom" className="text-xs">自定义</SelectItem>
+                </SelectContent>
+              </Select>
+              {timePeriod === 'custom' && (
+                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="h-7 text-xs gap-1.5 border-dashed border-primary/30 bg-primary/[0.03] animate-fade-in">
+                      <CalendarDays className="h-3.5 w-3.5 text-primary" />
+                      {calendarRange?.from ? (calendarRange.to ? <>{format(calendarRange.from, 'yyyy/MM/dd')} — {format(calendarRange.to, 'yyyy/MM/dd')}</> : format(calendarRange.from, 'yyyy/MM/dd')) : '选择日期范围'}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start"><Calendar mode="range" selected={calendarRange} onSelect={setCalendarRange} numberOfMonths={2} /></PopoverContent>
+                </Popover>
+              )}
+              {calendarRange?.from && calendarRange?.to && timePeriod === 'custom' && (
+                <Badge variant="outline" className="text-xs tabular-nums animate-fade-in">{filteredDates.length} 天</Badge>
+              )}
               <div className="flex items-center gap-1.5 bg-muted/60 rounded-lg p-0.5">
                 <Button variant={viewMode === 'distribution' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('distribution')} className="h-7 text-xs px-2.5"><BarChart3 className="h-3.5 w-3.5 mr-1" />分布</Button>
                 <Button variant={viewMode === 'trend' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('trend')} className="h-7 text-xs px-2.5"><TrendingUp className="h-3.5 w-3.5 mr-1" />趋势</Button>
@@ -396,15 +417,6 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
               </Popover>
             </div>
           </div>
-          {timePeriod === 'custom' && (
-            <div className="flex items-center gap-3 mt-3 pt-3 border-t border-border">
-              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                <PopoverTrigger asChild><Button variant="outline" className="h-8 text-xs gap-1.5"><CalendarDays className="h-3.5 w-3.5 text-primary" />{calendarRange?.from ? (calendarRange.to ? <>{format(calendarRange.from, 'yyyy/MM/dd')} — {format(calendarRange.to, 'yyyy/MM/dd')}</> : format(calendarRange.from, 'yyyy/MM/dd')) : '选择日期范围'}</Button></PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start"><Calendar mode="range" selected={calendarRange} onSelect={setCalendarRange} numberOfMonths={2} /></PopoverContent>
-              </Popover>
-              {calendarRange?.from && calendarRange?.to && <Badge variant="outline" className="text-xs">{filteredDates.length} 天数据</Badge>}
-            </div>
-          )}
           {aggregatedData && aggregatedData.count > 1 && (
             <div className="mt-3 px-3 py-2 rounded-lg bg-gradient-to-r from-primary/15 via-primary/10 to-primary/15 text-primary text-xs font-medium border border-primary/20">
               {searchKeyword.trim() ? <>关键词「{searchKeyword}」匹配 <span className="font-bold">{aggregatedData.count}</span> 个产品，{periodLabel}合计 <span className="font-bold">{aggregatedData.total}</span> 单</> : <>{periodLabel}已聚合 <span className="font-bold">{aggregatedData.count}</span> 个产品，合计 <span className="font-bold">{aggregatedData.total}</span> 单 · {filteredDates.length} 天数据</>}
