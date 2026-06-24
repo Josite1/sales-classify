@@ -6,7 +6,7 @@ set -e
 
 echo "[railway] Starting FastAPI backend on port 8001..."
 cd backend
-python -m uvicorn main:app --host 0.0.0.0 --port 8001 &
+python3 -m uvicorn main:app --host 0.0.0.0 --port 8001 &
 BACKEND_PID=$!
 cd ..
 
