@@ -363,8 +363,8 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
       <Card className="brutal-card-lift sticky top-0 z-10 bg-background/98 backdrop-blur-md border-primary/10">
         <CardHeader className="pb-2">
           <div className="flex flex-col gap-2">
-            <div className="flex items-center justify-between gap-3">
-              <CardTitle className="text-base font-bold flex items-center gap-2 whitespace-nowrap"><MapPin className="h-4 w-4 text-primary shrink-0" />地域分布分析</CardTitle>
+            <CardTitle className="text-base font-bold flex items-center gap-2 whitespace-nowrap"><MapPin className="h-4 w-4 text-primary shrink-0" />地域分布分析</CardTitle>
+            <div className="flex items-center gap-2">
               <div className="flex items-center gap-0 bg-muted/60 rounded-lg p-0.5 text-xs shrink-0">
                 {(['day', 'week', 'month', 'custom'] as TimePeriod[]).map((p, i) => (
                   <span key={p}>
@@ -378,8 +378,6 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
                   </span>
                 ))}
               </div>
-            </div>
-            <div className="flex items-center gap-1.5 flex-wrap">
               {timePeriod === 'custom' && (
                 <div className="flex items-center gap-1 animate-fade-in shrink-0">
                   <Input type="date" value={customStart || (selectedDate || '')} onChange={e => setCustomStart(e.target.value)} className="h-7 text-xs w-[130px] font-mono px-1.5" />
@@ -387,6 +385,8 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
                   <Input type="date" value={customEnd || (selectedDate || '')} onChange={e => setCustomEnd(e.target.value)} className="h-7 text-xs w-[130px] font-mono px-1.5" />
                 </div>
               )}
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
               <div className="flex items-center gap-0.5 bg-muted/60 rounded-lg p-0.5">
                 <Button variant={viewMode === 'distribution' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('distribution')} className="h-7 text-xs px-2"><BarChart3 className="h-3.5 w-3.5 mr-1" />分布</Button>
                 <Button variant={viewMode === 'trend' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('trend')} className="h-7 text-xs px-2"><TrendingUp className="h-3.5 w-3.5 mr-1" />趋势</Button>
