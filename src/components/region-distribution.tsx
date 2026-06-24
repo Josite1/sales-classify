@@ -10,11 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { MapPin, Search, X, Check, ChevronsUpDown, Map as MapIcon, BarChart3, TrendingUp, CalendarDays } from 'lucide-react';
-import { Calendar } from '@/components/ui/calendar';
-import { format } from 'date-fns';
-import type { DateRange } from 'react-day-picker';
+import { MapPin, Search, X, Check, ChevronsUpDown, Map as MapIcon, BarChart3, TrendingUp } from 'lucide-react';
 import type { AllRecords, ProductAliases, RegionItem } from '@/lib/types';
 import { loadProductAliases } from '@/lib/storage';
 import { apiComputeRegionAggregation, apiComputeRegionTrend, apiComputeOptions } from '@/lib/api';
@@ -92,8 +88,8 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
   const [aliases, setAliases] = useState<ProductAliases>({});
   const [comboOpen, setComboOpen] = useState(false);
   const [timePeriod, setTimePeriod] = useState<TimePeriod>('week');
-  const [calendarRange, setCalendarRange] = useState<DateRange | undefined>();
-  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [customStart, setCustomStart] = useState('');
+  const [customEnd, setCustomEnd] = useState('');
   const [viewMode, setViewMode] = useState<ViewMode>('distribution');
   const [selectedRegions, setSelectedRegions] = useState<string[]>([]);
   const [regionComboOpen, setRegionComboOpen] = useState(false);
@@ -160,9 +156,9 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
       case 'day': return { start: selectedDate, end: selectedDate };
       case 'week': return getISOWeekRange(selectedDate);
       case 'month': return getMonthRange(selectedDate);
-      case 'custom': return { start: calendarRange?.from ? format(calendarRange.from, 'yyyy-MM-dd') : '', end: calendarRange?.to ? format(calendarRange.to, 'yyyy-MM-dd') : '' };
+      case 'custom': return customStart && customEnd ? { start: customStart, end: customEnd } : { start: '', end: '' };
     }
-  }, [selectedDate, timePeriod, calendarRange]);
+  }, [selectedDate, timePeriod, customStart, customEnd]);
 
   const filteredDates = useMemo(() => {
     if (!dateRange.start || !dateRange.end) return [];
@@ -336,9 +332,9 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
       case 'day': return '当日';
       case 'week': return '当周';
       case 'month': return '当月';
-      case 'custom': return `${calendarRange?.from ? format(calendarRange.from, 'MM/dd') : '?'} ~ ${calendarRange?.to ? format(calendarRange.to, 'MM/dd') : '?'}`;
+      case 'custom': return `${customStart || '?'} ~ ${customEnd || '?'}`;
     }
-  }, [timePeriod, calendarRange]);
+  }, [timePeriod, customStart, customEnd]);
 
   if (productNames.length === 0) {
     return (<Card><CardContent className="flex items-center justify-center py-16 text-muted-foreground"><p className="text-sm">该时间段内暂无产品数据</p></CardContent></Card>);
@@ -369,31 +365,35 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
           <div className="flex items-center justify-between gap-4 flex-wrap">
             <div><CardTitle className="text-base font-bold flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" />地域分布分析</CardTitle><CardDescription className="text-xs mt-1">按省份查看红色旗子售后地域分布</CardDescription></div>
             <div className="flex items-center gap-2 flex-wrap">
-              <Select value={timePeriod} onValueChange={(v) => setTimePeriod(v as TimePeriod)}>
-                <SelectTrigger className="h-7 text-xs w-[100px] gap-1 rounded-lg border-primary/20 bg-primary/5">
-                  <CalendarDays className="h-3 w-3 text-primary" />
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="day" className="text-xs">当日</SelectItem>
-                  <SelectItem value="week" className="text-xs">当周</SelectItem>
-                  <SelectItem value="month" className="text-xs">当月</SelectItem>
-                  <SelectItem value="custom" className="text-xs">自定义</SelectItem>
-                </SelectContent>
-              </Select>
+              <div className="flex items-center gap-0.5 bg-muted/60 rounded-lg p-0.5">
+                {(['day', 'week', 'month', 'custom'] as TimePeriod[]).map(p => (
+                  <Button
+                    key={p}
+                    variant={timePeriod === p ? 'default' : 'ghost'}
+                    size="sm"
+                    onClick={() => setTimePeriod(p)}
+                    className="h-7 text-xs px-2.5 transition-all duration-200"
+                  >
+                    {p === 'day' ? '当日' : p === 'week' ? '当周' : p === 'month' ? '当月' : '自定义'}
+                  </Button>
+                ))}
+              </div>
               {timePeriod === 'custom' && (
-                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="h-7 text-xs gap-1.5 border-dashed border-primary/30 bg-primary/[0.03] animate-fade-in">
-                      <CalendarDays className="h-3.5 w-3.5 text-primary" />
-                      {calendarRange?.from ? (calendarRange.to ? <>{format(calendarRange.from, 'yyyy/MM/dd')} — {format(calendarRange.to, 'yyyy/MM/dd')}</> : format(calendarRange.from, 'yyyy/MM/dd')) : '选择日期范围'}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start"><Calendar mode="range" selected={calendarRange} onSelect={setCalendarRange} numberOfMonths={2} /></PopoverContent>
-                </Popover>
-              )}
-              {calendarRange?.from && calendarRange?.to && timePeriod === 'custom' && (
-                <Badge variant="outline" className="text-xs tabular-nums animate-fade-in">{filteredDates.length} 天</Badge>
+                <div className="flex items-center gap-1.5 animate-fade-in">
+                  <Input
+                    type="date"
+                    value={customStart || (selectedDate || '')}
+                    onChange={e => setCustomStart(e.target.value)}
+                    className="h-7 text-xs w-[130px] font-mono"
+                  />
+                  <span className="text-xs text-muted-foreground">~</span>
+                  <Input
+                    type="date"
+                    value={customEnd || (selectedDate || '')}
+                    onChange={e => setCustomEnd(e.target.value)}
+                    className="h-7 text-xs w-[130px] font-mono"
+                  />
+                </div>
               )}
               <div className="flex items-center gap-1.5 bg-muted/60 rounded-lg p-0.5">
                 <Button variant={viewMode === 'distribution' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('distribution')} className="h-7 text-xs px-2.5"><BarChart3 className="h-3.5 w-3.5 mr-1" />分布</Button>
