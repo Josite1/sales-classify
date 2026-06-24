@@ -363,35 +363,35 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
       <Card className="brutal-card-lift sticky top-0 z-10 bg-background/98 backdrop-blur-md border-primary/10">
         <CardHeader className="pb-2">
           <div className="flex flex-col gap-2">
-            <div className="flex items-center gap-3">
-            <CardTitle className="text-base font-bold flex items-center gap-2 whitespace-nowrap"><MapPin className="h-4 w-4 text-primary shrink-0" />地域分布分析</CardTitle>
-            <div className="flex items-center gap-0 bg-muted/60 rounded-lg p-0.5 text-xs shrink-0">
-              {(['day', 'week', 'month', 'custom'] as TimePeriod[]).map((p, i) => (
-                <span key={p}>
-                  {i > 0 && <span className="text-muted-foreground/40 px-1">/</span>}
-                  <button
-                    onClick={() => setTimePeriod(p)}
-                    className={`px-1.5 py-1 rounded-md transition-all duration-200 ${timePeriod === p ? 'bg-background text-foreground font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
-                  >
-                    {p === 'day' ? '当日' : p === 'week' ? '当周' : p === 'month' ? '当月' : '自定义'}
-                  </button>
-                </span>
-              ))}
-            </div>
-            {timePeriod === 'custom' && (
-              <div className="flex items-center gap-1 animate-fade-in shrink-0">
-                <Input type="date" value={customStart || (selectedDate || '')} onChange={e => setCustomStart(e.target.value)} className="h-7 text-xs w-[120px] font-mono px-1.5" />
-                <span className="text-xs text-muted-foreground">~</span>
-                <Input type="date" value={customEnd || (selectedDate || '')} onChange={e => setCustomEnd(e.target.value)} className="h-7 text-xs w-[120px] font-mono px-1.5" />
+            <div className="flex items-center justify-between gap-3">
+              <CardTitle className="text-base font-bold flex items-center gap-2 whitespace-nowrap"><MapPin className="h-4 w-4 text-primary shrink-0" />地域分布分析</CardTitle>
+              <div className="flex items-center gap-0 bg-muted/60 rounded-lg p-0.5 text-xs shrink-0">
+                {(['day', 'week', 'month', 'custom'] as TimePeriod[]).map((p, i) => (
+                  <span key={p}>
+                    {i > 0 && <span className="text-muted-foreground/40 px-1">/</span>}
+                    <button
+                      onClick={() => setTimePeriod(p)}
+                      className={`px-1.5 py-1 rounded-md transition-all duration-200 ${timePeriod === p ? 'bg-background text-foreground font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                      {p === 'day' ? '当日' : p === 'week' ? '当周' : p === 'month' ? '当月' : '自定义'}
+                    </button>
+                  </span>
+                ))}
               </div>
-            )}
-            <div className="flex-1" />
-            <div className="flex items-center gap-1.5 shrink-0">
+            </div>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              {timePeriod === 'custom' && (
+                <div className="flex items-center gap-1 animate-fade-in shrink-0">
+                  <Input type="date" value={customStart || (selectedDate || '')} onChange={e => setCustomStart(e.target.value)} className="h-7 text-xs w-[130px] font-mono px-1.5" />
+                  <span className="text-xs text-muted-foreground">~</span>
+                  <Input type="date" value={customEnd || (selectedDate || '')} onChange={e => setCustomEnd(e.target.value)} className="h-7 text-xs w-[130px] font-mono px-1.5" />
+                </div>
+              )}
               <div className="flex items-center gap-0.5 bg-muted/60 rounded-lg p-0.5">
                 <Button variant={viewMode === 'distribution' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('distribution')} className="h-7 text-xs px-2"><BarChart3 className="h-3.5 w-3.5 mr-1" />分布</Button>
                 <Button variant={viewMode === 'trend' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('trend')} className="h-7 text-xs px-2"><TrendingUp className="h-3.5 w-3.5 mr-1" />趋势</Button>
               </div>
-              <div className="relative w-[130px]">
+              <div className="relative w-[150px]">
                 <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
                 <Input placeholder="搜索..." value={searchKeyword} onChange={e => setSearchKeyword(e.target.value)} className="!pl-7 h-7 text-xs" />
                 {searchKeyword && <button onClick={() => setSearchKeyword('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>}
@@ -408,7 +408,6 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
                 </PopoverContent>
               </Popover>
             </div>
-          </div>
           </div>
           {aggregatedData && aggregatedData.count > 1 && (
             <div className="mt-3 px-3 py-2 rounded-lg bg-gradient-to-r from-primary/15 via-primary/10 to-primary/15 text-primary text-xs font-medium border border-primary/20">
