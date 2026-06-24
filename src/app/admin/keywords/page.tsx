@@ -45,7 +45,7 @@ interface KeywordRule {
   keywords: string;
 }
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
 
 export default function KeywordsAdminPage() {
   const [reasons, setReasons] = useState<KeywordRule[]>([]);

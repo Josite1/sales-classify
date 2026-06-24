@@ -43,7 +43,7 @@ export function ExcelImportDialog({ open, onOpenChange, onImported }: ExcelImpor
     try {
       const formData = new FormData();
       formData.append('sales_file', salesFile);
-      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
       const res = await fetch(API_BASE + '/api/excel/import-with-rules', {
         method: 'POST',
         body: formData,
