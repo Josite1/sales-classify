@@ -157,3 +157,21 @@ Desktop.ini
 # Misc
 .coze-logs
 .preview
+.codegraph/
+.coze
+# Temporary build scripts
+src/lib/gen_store.py
+src/lib/append_code.py
+src/lib/fix_store.py
+src/lib/add_missing_fns.py
+src/lib/update_imports.py
+src/lib/update_all_imports.py
+src/lib/append.ps1
+src/lib/combine.ps1
+src/lib/complete_store.ps1
+src/lib/do_combine.ps1
+src/lib/func_cloudLoad.ts
+src/lib/func_cloudSave.ts
+src/lib/func_computeAggregated.ts
+src/lib/func_merge.ts
+backend/railway.json
