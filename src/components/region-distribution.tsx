@@ -319,7 +319,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
         const tvRatio = d.value > 0 ? d.town_village / d.value : 0;
         return { name: d.name, value: Math.round((countScore * 0.6 + tvRatio * 0.4) * 100), total: d.value, town_village: d.town_village };
       });
-      chartInstanceRef.current.setOption({
+      chartInstanceRef.current?.setOption({
         animation: true,
         animationDuration: 600,
         animationDurationUpdate: 400,
@@ -332,7 +332,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
 
     if (!needsReinit && chartType === 'groupedBar') {
       const townRatios = chartData.map(d => d.value > 0 ? Math.round((d.town_village / d.value) * 100) : 0);
-      chartInstanceRef.current.setOption({
+      chartInstanceRef.current?.setOption({
         animation: true, animationDuration: 600, animationEasing: 'cubicInOut' as const, animationDurationUpdate: 400,
         xAxis: { data: chartData.map(d => d.name) },
         series: [
@@ -407,7 +407,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
 
     if (!needsReinit) {
       // Smooth data update without re-init
-      trendChartInstanceRef.current.setOption({
+      trendChartInstanceRef.current?.setOption({
         animation: true, animationDuration: 600, animationEasing: 'cubicInOut' as const,
         xAxis: { data: trendData.map(d => d.label) },
         series: topRegions.map((region, i) => {
