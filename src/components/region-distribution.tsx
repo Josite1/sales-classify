@@ -362,23 +362,24 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
       `}</style>
       <Card className="brutal-card-lift sticky top-0 z-10 bg-background/98 backdrop-blur-md border-primary/10">
         <CardHeader className="pb-2">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 shrink-0">
               <CardTitle className="text-base font-bold flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" />地域分布分析</CardTitle>
               <CardDescription className="text-xs hidden sm:block">按省份查看售后地域分布</CardDescription>
             </div>
             <div className="flex items-center gap-1.5 shrink-0">
-              <div className="flex items-center gap-0.5 bg-muted/60 rounded-lg p-0.5">
-                {(['day', 'week', 'month', 'custom'] as TimePeriod[]).map(p => (
-                  <Button
-                    key={p}
-                    variant={timePeriod === p ? 'default' : 'ghost'}
-                    size="sm"
-                    onClick={() => setTimePeriod(p)}
-                    className="h-7 text-xs px-2 transition-all duration-200"
-                  >
-                    {p === 'day' ? '当日' : p === 'week' ? '当周' : p === 'month' ? '当月' : '自定义'}
-                  </Button>
+              <div className="flex items-center gap-0 bg-muted/60 rounded-lg p-0.5 text-xs">
+                {(['day', 'week', 'month', 'custom'] as TimePeriod[]).map((p, i) => (
+                  <span key={p}>
+                    {i > 0 && <span className="text-muted-foreground/40 px-1">/</span>}
+                    <button
+                      onClick={() => setTimePeriod(p)}
+                      className={`px-1.5 py-1 rounded-md transition-all duration-200 ${timePeriod === p ? 'bg-background text-foreground font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                    >
+                      {p === 'day' ? '当日' : p === 'week' ? '当周' : p === 'month' ? '当月' : '自定义'}
+                    </button>
+                  </span>
                 ))}
               </div>
               {timePeriod === 'custom' && (
@@ -388,15 +389,18 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
                   <Input type="date" value={customEnd || (selectedDate || '')} onChange={e => setCustomEnd(e.target.value)} className="h-7 text-xs w-[122px] font-mono px-1.5" />
                 </div>
               )}
-              <div className="flex items-center gap-0.5 bg-muted/60 rounded-lg p-0.5">
-                <Button variant={viewMode === 'distribution' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('distribution')} className="h-7 text-xs px-2"><BarChart3 className="h-3.5 w-3.5 mr-1" />分布</Button>
-                <Button variant={viewMode === 'trend' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('trend')} className="h-7 text-xs px-2"><TrendingUp className="h-3.5 w-3.5 mr-1" />趋势</Button>
-              </div>
-              <div className="relative w-[150px]">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input placeholder="搜索..." value={searchKeyword} onChange={e => setSearchKeyword(e.target.value)} className="!pl-7 h-7 text-xs" />
-                {searchKeyword && <button onClick={() => setSearchKeyword('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>}
-              </div>
+            </div>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-0.5 bg-muted/60 rounded-lg p-0.5">
+              <Button variant={viewMode === 'distribution' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('distribution')} className="h-7 text-xs px-2"><BarChart3 className="h-3.5 w-3.5 mr-1" />分布</Button>
+              <Button variant={viewMode === 'trend' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('trend')} className="h-7 text-xs px-2"><TrendingUp className="h-3.5 w-3.5 mr-1" />趋势</Button>
+            </div>
+            <div className="relative w-[150px]">
+              <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+              <Input placeholder="搜索..." value={searchKeyword} onChange={e => setSearchKeyword(e.target.value)} className="!pl-7 h-7 text-xs" />
+              {searchKeyword && <button onClick={() => setSearchKeyword('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>}
+            </div>
               <Popover open={comboOpen} onOpenChange={setComboOpen}>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-[240px] h-8 justify-between text-xs font-medium border-primary/20 hover:border-primary/40 bg-primary/5"><span className="truncate">{selectedProduct === '__ALL__' ? `全部产品` : `${aliases[selectedProduct]?.alias || selectedProduct}`}</span><ChevronsUpDown className="ml-1 h-3.5 w-3.5 shrink-0 opacity-50" /></Button>
