@@ -409,6 +409,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
               </Popover>
             </div>
           </div>
+          </div>
           {aggregatedData && aggregatedData.count > 1 && (
             <div className="mt-3 px-3 py-2 rounded-lg bg-gradient-to-r from-primary/15 via-primary/10 to-primary/15 text-primary text-xs font-medium border border-primary/20">
               {searchKeyword.trim() ? <>关键词「{searchKeyword}」匹配 <span className="font-bold">{aggregatedData.count}</span> 个产品，{periodLabel}合计 <span className="font-bold">{aggregatedData.total}</span> 单</> : <>{periodLabel}已聚合 <span className="font-bold">{aggregatedData.count}</span> 个产品，合计 <span className="font-bold">{aggregatedData.total}</span> 单 · {filteredDates.length} 天数据</>}
