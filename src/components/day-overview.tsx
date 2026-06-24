@@ -572,8 +572,8 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
   // Product change: new products vs removed products from previous period
   const productChange = useMemo(() => {
     if (!prevSummary || !summary) return null;
-    const current = new Set((summary.productBreakdown || []).map((p: any) => p.name));
-    const prev = new Set((prevSummary.productBreakdown || []).map((p: any) => p.name));
+    const current = new Set((summary.productBreakdown || []).map((p: any) => p.name as string));
+    const prev = new Set((prevSummary.productBreakdown || []).map((p: any) => p.name as string));
     const added = [...current].filter(n => !prev.has(n));
     const removed = [...prev].filter(n => !current.has(n));
     return { added, removed };
