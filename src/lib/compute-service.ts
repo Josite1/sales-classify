@@ -156,8 +156,9 @@ export async function computeRegionAggregation(
   startDate: string,
   endDate: string,
   targetProducts: string[],
+  flagType: string = '红色旗子',
 ): Promise<{ region: Record<string, { count: number; town_village: number }>; total: number; count: number }> {
-  return apiComputeRegionAggregation(records, startDate, endDate, targetProducts);
+  return apiComputeRegionAggregation(records, startDate, endDate, targetProducts, flagType);
 }
 
 export async function computeRegionTrend(
@@ -175,8 +176,9 @@ export async function computeShopAggregation(
   startDate: string,
   endDate: string,
   targetProducts: string[],
+  flagType: string = '红色旗子',
 ): Promise<{ shop: Record<string, number>; total: number; count: number }> {
-  return apiComputeShopAggregation(records, startDate, endDate, targetProducts);
+  return apiComputeShopAggregation(records, startDate, endDate, targetProducts, flagType);
 }
 
 export async function computeShopTrend(

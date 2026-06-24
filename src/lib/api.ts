@@ -285,10 +285,11 @@ export async function apiComputeRegionAggregation(
   startDate: string,
   endDate: string,
   targetProducts: string[],
+  flagType: string = '红色旗子',
 ): Promise<{ region: Record<string, { count: number; town_village: number }>; total: number; count: number }> {
   return request('/api/compute/region-aggregation', {
     method: 'POST',
-    body: JSON.stringify({ records, startDate, endDate, targetProducts }),
+    body: JSON.stringify({ records, startDate, endDate, targetProducts, flagType }),
   });
 }
 
@@ -312,10 +313,11 @@ export async function apiComputeShopAggregation(
   startDate: string,
   endDate: string,
   targetProducts: string[],
+  flagType: string = '红色旗子',
 ): Promise<{ shop: Record<string, number>; total: number; count: number }> {
   return request('/api/compute/shop-aggregation', {
     method: 'POST',
-    body: JSON.stringify({ records, startDate, endDate, targetProducts }),
+    body: JSON.stringify({ records, startDate, endDate, targetProducts, flagType }),
   });
 }
 

@@ -377,7 +377,7 @@ export default function Home() {
       `}</style>
 
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-border/60 animate-fade-in">
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-3 flex items-center justify-between gap-4">
+        <div className="max-w-[1440px] mx-auto px-3 sm:px-4 py-1.5 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 animate-fade-in-left">
             <div className="bg-gradient-to-br from-primary to-emerald-600 text-primary-foreground p-2 rounded-lg shadow-md pulse-glow">
               <BarChart3 className="h-5 w-5" />
@@ -442,7 +442,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main className="max-w-[1440px] mx-auto px-3 sm:px-4 py-3 flex-1">
         {totalDays === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-muted-foreground animate-scale-in">
             <FileJson className="h-16 w-16 mb-4 opacity-30" />
@@ -451,8 +451,8 @@ export default function Home() {
             <Button onClick={() => setImportOpen(true)} size="lg"><Plus className="h-4 w-4 mr-1.5" />导入第一份数据</Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:h-[calc(100vh-140px)] animate-fade-in-up">
-            <div className="lg:col-span-3 lg:overflow-y-auto lg:sticky lg:top-[73px] lg:h-[calc(100vh-140px)] lg:pr-2 scrollbar-thin animate-fade-in-left">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-[calc(100vh-60px)] animate-fade-in-up">
+            <div className="lg:col-span-3 lg:overflow-y-auto lg:sticky lg:top-[52px] lg:h-[calc(100vh-60px)] lg:pr-1 animate-fade-in-left">
               <DateRecordsPanel
                 records={records}
                 selectedDate={selectedDate}
@@ -468,9 +468,9 @@ export default function Home() {
               />
             </div>
 
-            <div className="lg:col-span-9 lg:flex lg:flex-col lg:h-[calc(100vh-140px)] lg:pl-2 animate-scale-in animate-delay-1">
+            <div className="lg:col-span-9 lg:flex lg:flex-col lg:h-[calc(100vh-60px)] lg:pl-1 animate-scale-in animate-delay-1">
               <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full flex flex-col lg:flex-1 lg:overflow-hidden">
-                <TabsList className="mb-4 shrink-0">
+                <TabsList className="mb-3 shrink-0">
                   {tabs.map(({ value, icon: Icon, label }) => (
                     <TabsTrigger key={value} value={value} className={`gap-1.5 transition-all duration-200 ${activeTab === value ? 'tab-indicator-active' : ''}`}>
                       <Icon className="h-3.5 w-3.5" />{label}
@@ -503,10 +503,9 @@ export default function Home() {
         )}
       </main>
 
-      <footer className="border-t border-border mt-8 py-6 animate-fade-in" style={{ animationDelay: '0.6s' }}>
-        <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between text-xs text-muted-foreground">
-          <p>售后数据看板 &bull; 数据本地+云端存储</p>
-          <p className="tabular-nums">{totalDays} 日期记录</p>
+      <footer className="border-t border-border py-1.5 text-center animate-fade-in" style={{ animationDelay: '0.6s' }}>
+        <div className="max-w-[100vw] mx-auto px-3 text-[10px] text-muted-foreground">
+          {totalDays} 日期记录
         </div>
       </footer>
 

@@ -213,6 +213,7 @@ async def region_aggregation(payload: Dict):
         start_date=payload.get('startDate', ''),
         end_date=payload.get('endDate', ''),
         target_products=payload.get('targetProducts', []),
+        flag_type=payload.get('flagType', '红色旗子'),
     )
     return result or {'region': {}, 'total': 0, 'count': 0}
 
@@ -238,6 +239,7 @@ async def shop_aggregation(payload: Dict):
         start_date=payload.get('startDate', ''),
         end_date=payload.get('endDate', ''),
         target_products=payload.get('targetProducts', []),
+        flag_type=payload.get('flagType', '红色旗子'),
     )
     return result or {'shop': {}, 'total': 0, 'count': 0}
 

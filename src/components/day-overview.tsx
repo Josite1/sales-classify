@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { DataTableExport, type DataRow } from '@/components/data-table-export';
 import {
   TrendingUp,
   TrendingDown,
@@ -337,6 +339,8 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
   // API-computed states
   const [summary, setSummary] = useState<any>(null);
   const [prevSummary, setPrevSummary] = useState<any>(null);
+  const [productDetailOpen, setProductDetailOpen] = useState(false);
+  const [showProductCounts, setShowProductCounts] = useState(false);
   const [summaryLoading, setSummaryLoading] = useState(false);
   const [productOptions, setProductOptions] = useState<{ label: string; value: string; count: number }[]>([]);
   const [shopOptions, setShopOptions] = useState<{ label: string; value: string; count: number }[]>([]);
@@ -565,6 +569,16 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
   const redFlagChange =
     prevSummary && summary ? summary.redFlags - prevSummary.redFlags : null;
 
+  // Product change: new products vs removed products from previous period
+  const productChange = useMemo(() => {
+    if (!prevSummary || !summary) return null;
+    const current = new Set((summary.productBreakdown || []).map((p: any) => p.name));
+    const prev = new Set((prevSummary.productBreakdown || []).map((p: any) => p.name));
+    const added = [...current].filter(n => !prev.has(n));
+    const removed = [...prev].filter(n => !current.has(n));
+    return { added, removed };
+  }, [prevSummary, summary]);
+
   const cards = summary
     ? [
         {
@@ -583,6 +597,8 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
           icon: Package,
           accentColor: '#3b82f6',
           iconBg: 'rgba(59,130,246,0.12)',
+          clickable: true,
+          productChange,
         },
         {
           label: '红旗标记',
@@ -610,6 +626,67 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
     month: '月',
     year: '年',
     custom: '自定义',
+  };
+
+  const buildTableData = (records: any, dateRange: any, summary: any, selectedProducts: string[], selectedShops: string[], aliases: any): DataRow[] => {
+    if (!dateRange || !summary) return [];
+    const rows: DataRow[] = [];
+    const dates = Object.keys(records).sort().filter((d: string) => d >= dateRange.start && d <= dateRange.end);
+    for (const d of dates) {
+      const record = records[d];
+      if (!record) continue;
+      for (const [pName, pData] of Object.entries(record.data || {})) {
+        if (selectedProducts.length > 0 && !selectedProducts.includes(pName)) continue;
+        const pDataObj = pData as Record<string, any>;
+        const flags = pDataObj['标旗分类'] || {};
+        const shops = pDataObj['店铺分类'] || {};
+        let shopCount = 0;
+        for (const [, fShops] of Object.entries(shops)) {
+          if (typeof fShops === 'object' && fShops) {
+            for (const v of Object.values(fShops as Record<string, any>)) {
+              shopCount += typeof v === 'object' && v?.count ? v.count : (typeof v === 'number' ? v : 0);
+            }
+          }
+        }
+        if (selectedShops.length > 0) {
+          let match = false;
+          for (const [, fShops] of Object.entries(shops)) {
+            if (typeof fShops === 'object' && fShops) {
+              for (const sName of Object.keys(fShops as Record<string, any>)) {
+                if (selectedShops.includes(sName)) { match = true; break; }
+              }
+            }
+            if (match) break;
+          }
+          if (!match) continue;
+        }
+        const flagTypes = ['红色旗子', '绿色旗子', '灰色旗子', '黄色旗子', '紫色旗子', '蓝色旗子', '黑色旗子'];
+        for (const ft of flagTypes) {
+          const count = flags[ft] || 0;
+          if (count > 0) {
+            rows.push({
+              日期: d,
+              产品: aliases[pName]?.alias || pName,
+              售后数: pDataObj.total || 0,
+              标旗类型: ft.replace('旗子', ''),
+              数量: count,
+              店铺数: shopCount,
+            });
+          }
+        }
+        if (flagTypes.every(ft => !flags[ft])) {
+          rows.push({
+            日期: d,
+            产品: aliases[pName]?.alias || pName,
+            售后数: pDataObj.total || 0,
+            标旗类型: '-',
+            数量: 0,
+            店铺数: shopCount,
+          });
+        }
+      }
+    }
+    return rows;
   };
 
   return (
@@ -849,6 +926,32 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                 );
               }
 
+              if (card.clickable) {
+                return (
+                  <Card key={card.label} className={`${baseCardClass} cursor-pointer hover:ring-1 hover:ring-primary/30`} style={{ borderLeft: `4px solid ${card.accentColor}`, backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)` }} onClick={() => setProductDetailOpen(true)}>
+                    <CardContent className="pt-5 pb-5">
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs text-muted-foreground font-medium tracking-wide uppercase">{card.label}</p>
+                        <div className={iconContainerClass} style={{ backgroundColor: card.iconBg }}>
+                          <Icon className="h-4 w-4" style={{ color: card.accentColor }} />
+                        </div>
+                      </div>
+                      <div className="mt-3">
+                        <p className={valueClass} style={{ color: card.accentColor }}>{card.value}</p>
+                        {productChange && (
+                          <div className="flex items-center gap-2 mt-1.5 text-base font-semibold">
+                            {productChange.added.length > 0 && <span className="text-emerald-600 font-semibold flex items-center gap-0.5"><TrendingUp className="h-3.5 w-3.5" />+{productChange.added.length}</span>}
+                            {productChange.removed.length > 0 && <span className="text-destructive font-semibold flex items-center gap-0.5"><TrendingDown className="h-3.5 w-3.5" />-{productChange.removed.length}</span>}
+                            {productChange.added.length === 0 && productChange.removed.length === 0 && <span className="text-muted-foreground">持平</span>}
+                          </div>
+                        )}
+                      </div>
+                    </CardContent>
+                    <div className="absolute -bottom-4 -right-4 w-16 h-16 rounded-full opacity-10 blur-xl" style={{ backgroundColor: card.accentColor }} />
+                  </Card>
+                );
+              }
+
               return (
                 <Card key={card.label} className={baseCardClass} style={{ borderLeft: `4px solid ${card.accentColor}`, backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)` }}>
                   <CardContent className="pt-5 pb-5">
@@ -863,11 +966,11 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                       {card.change !== null && (
                         <div className={trendBaseClass}>
                           {(card.isRedFlag ? card.changeUp : card.changeUp) ? (
-                            <TrendingUp className="h-3.5 w-3.5 text-destructive" />
+                            <TrendingUp className="h-4 w-4 text-destructive" />
                           ) : (
-                            <TrendingDown className="h-3.5 w-3.5 text-emerald-500" />
+                            <TrendingDown className="h-4 w-4 text-emerald-500" />
                           )}
-                          <span className={`text-xs font-semibold tabular-nums ${(card.isRedFlag ? card.changeUp : card.changeUp) ? 'text-destructive' : 'text-emerald-500'}`}>
+                          <span className={`text-sm font-semibold tabular-nums ${(card.isRedFlag ? card.changeUp : card.changeUp) ? 'text-destructive' : 'text-emerald-500'}`}>
                             {card.changePercent !== undefined
                               ? `${card.changeUp ? '+' : ''}${card.changePercent}%`
                               : `${card.changeUp ? '+' : ''}${card.change}`}
@@ -895,6 +998,93 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
           )}
         </>
       )}
+
+      <DataTableExport
+        columns={[
+          { key: '日期', label: '日期', width: '100px' },
+          { key: '产品', label: '产品', width: '140px' },
+          { key: '售后数', label: '售后数', width: '70px' },
+          { key: '标旗类型', label: '标旗类型', width: '80px' },
+          { key: '数量', label: '数量', width: '60px' },
+        ]}
+        data={buildTableData(records, dateRange, summary, selectedProducts, selectedShops, aliases)}
+        title="产品明细"
+        sheetOptions={[
+          { value: 'none', label: '不分' },
+          { value: '日期', label: '按日期' },
+          { value: '产品', label: '按产品' },
+        ]}
+        defaultSheetBy="none"
+      />
+
+      <Dialog open={productDetailOpen} onOpenChange={v => { setProductDetailOpen(v); if (!v) setShowProductCounts(false); }}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-sm font-bold">产品变化</DialogTitle>
+          </DialogHeader>
+          <div className="grid grid-cols-1 gap-3 py-2">
+            {productChange ? (
+              <>
+                {productChange.added.length > 0 && (
+                  <div className="rounded-xl border border-emerald-200 bg-gradient-to-br from-emerald-50 to-emerald-100/50 p-3">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <div className="w-5 h-5 rounded-full bg-emerald-500 flex items-center justify-center"><TrendingUp className="h-3 w-3 text-white" /></div>
+                      <span className="text-xs font-bold text-emerald-700">新增 {productChange.added.length} 个</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {productChange.added.map(name => {
+                        const item = summary?.productBreakdown?.find((p: any) => p.name === name);
+                        return (
+                          <Badge key={name} variant="outline" className={`text-base bg-white border-emerald-200 text-emerald-700 font-medium py-1 ${showProductCounts ? 'px-2' : 'px-1.5'}`}>
+                            {aliases[name]?.alias || name}{showProductCounts && item ? <span className="ml-1 text-emerald-400">·{item.total}</span> : ''}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {productChange.removed.length > 0 && (
+                  <div className="rounded-xl border border-red-200 bg-gradient-to-br from-red-50 to-red-100/50 p-3">
+                    <div className="flex items-center gap-1.5 mb-2">
+                      <div className="w-5 h-5 rounded-full bg-red-400 flex items-center justify-center"><TrendingDown className="h-3 w-3 text-white" /></div>
+                      <span className="text-xs font-bold text-red-700">减少 {productChange.removed.length} 个</span>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      {productChange.removed.map(name => {
+                        const item = prevSummary?.productBreakdown?.find((p: any) => p.name === name);
+                        return (
+                          <Badge key={name} variant="outline" className={`text-base bg-white border-red-200 text-red-600 font-medium py-1 ${showProductCounts ? 'px-2' : 'px-1.5'}`}>
+                            {aliases[name]?.alias || name}{showProductCounts && item ? <span className="ml-1 text-red-400">·{item.total}</span> : ''}
+                          </Badge>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+                {productChange.added.length === 0 && productChange.removed.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center py-2">产品无变化</p>
+                )}
+              </>
+            ) : (
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">当前产品 ({summary?.productBreakdown?.length || 0})</p>
+                <div className="flex flex-wrap gap-1">
+                  {summary?.productBreakdown?.map((p: any) => (
+                    <Badge key={p.name} variant="outline" className="text-base bg-white border-blue-200 text-blue-600 font-medium py-1 px-1.5">
+                      {aliases[p.name]?.alias || p.name}<span className="ml-1 text-blue-400">·{p.total}</span>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+            {(productChange?.added.length || 0) > 0 || (productChange?.removed.length || 0) > 0 ? (
+              <p className="text-xs text-muted-foreground text-center -mt-1 cursor-pointer hover:text-primary transition-colors" onClick={() => setShowProductCounts(!showProductCounts)}>
+                {showProductCounts ? '收起数量' : '查看具体数量'}
+              </p>
+            ) : null}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

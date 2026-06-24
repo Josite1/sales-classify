@@ -808,11 +808,32 @@ def normalize_province_name(name: str) -> str:
             .replace('特别行政区', ''))
 
 
+def get_region_distribution_by_flag(item: Dict, flag_type: str = '红色旗子') -> Dict[str, Any]:
+    """Get region distribution for a specific flag type."""
+    province_flags = item.get('省份分类', {}) or {}
+    if flag_type == '总数':
+        result = {}
+        for flag_name, provinces in province_flags.items():
+            if not isinstance(provinces, dict):
+                continue
+            for prov_name, prov_item in provinces.items():
+                if isinstance(prov_item, dict):
+                    if prov_name not in result:
+                        result[prov_name] = {'count': 0, 'town_village': 0}
+                    result[prov_name]['count'] += prov_item.get('count', 0)
+                    result[prov_name]['town_village'] += prov_item.get('town_village', 0)
+        return result
+    elif flag_type in province_flags:
+        return province_flags[flag_type]
+    return {}
+
+
 def compute_region_aggregation(
     records: Dict,
     start_date: str,
     end_date: str,
     target_products: List[str],
+    flag_type: str = '红色旗子',
 ) -> Optional[Dict]:
     """Aggregate region data across dates and products (region-distribution.tsx)."""
     dates = [d for d in sorted(records.keys()) if start_date <= d <= end_date]
@@ -829,8 +850,12 @@ def compute_region_aggregation(
             pd = record.get('data', {}).get(pname)
             if not pd:
                 continue
-            agg_total += get_product_total(pd)
-            rg = get_region_distribution(pd)
+            if flag_type == '总数':
+                agg_total += get_product_total(pd)
+            else:
+                flags = get_flags(pd)
+                agg_total += flags.get(flag_type, 0) or 0
+            rg = get_region_distribution_by_flag(pd, flag_type)
             for region, item in rg.items():
                 if region not in agg_region:
                     agg_region[region] = {'count': 0, 'town_village': 0}
@@ -880,11 +905,44 @@ def compute_region_trend_data(
 
 # ==================== Shop data ====================
 
+def get_shop_distribution_by_flag(item: Dict, flag_type: str = '红色旗子') -> Dict[str, int]:
+    """Get shop distribution for a specific flag type."""
+    shop_flags = item.get('店铺分类', {}) or {}
+    if flag_type == '总数':
+        result = {}
+        for flag_name, shops in shop_flags.items():
+            if not isinstance(shops, dict):
+                continue
+            for shop, val in shops.items():
+                if isinstance(val, dict) and 'count' in val:
+                    result[shop] = result.get(shop, 0) + val['count']
+                elif isinstance(val, (int, float)):
+                    result[shop] = result.get(shop, 0) + int(val)
+        return result
+    elif flag_type in shop_flags:
+        shops_dict = shop_flags[flag_type]
+        if isinstance(shops_dict, dict):
+            result = {}
+            for shop, val in shops_dict.items():
+                if isinstance(val, dict) and 'count' in val:
+                    result[shop] = val['count']
+                elif isinstance(val, (int, float)):
+                    result[shop] = int(val)
+            return result
+    return {}
+
+
+def get_shop_distribution(item: Dict) -> Dict[str, int]:
+    """Get red flag shop distribution (backward compat)."""
+    return get_shop_distribution_by_flag(item, '红色旗子')
+
+
 def compute_shop_aggregation(
     records: Dict,
     start_date: str,
     end_date: str,
     target_products: List[str],
+    flag_type: str = '红色旗子',
 ) -> Optional[Dict]:
     """Aggregate shop data across dates and products (shop-distribution.tsx)."""
     dates = [d for d in sorted(records.keys()) if start_date <= d <= end_date]
@@ -901,8 +959,12 @@ def compute_shop_aggregation(
             pd = record.get('data', {}).get(pname)
             if not pd:
                 continue
-            agg_total += get_product_total(pd)
-            sh = get_shop_distribution(pd)
+            if flag_type == '总数':
+                agg_total += get_product_total(pd)
+            else:
+                flags = get_flags(pd)
+                agg_total += flags.get(flag_type, 0) or 0
+            sh = get_shop_distribution_by_flag(pd, flag_type)
             for shop, count in sh.items():
                 agg_shop[shop] = agg_shop.get(shop, 0) + count
 

@@ -268,33 +268,15 @@
   border-color: var(--primary) !important;
 }
 
-/* Scrollbar styling - terminal-like thin scrollbar */
+/* Scrollbar — completely hidden */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 0;
+  height: 0;
+  display: none;
 }
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border: none;
-}
-::-webkit-scrollbar-thumb:hover {
-  background: var(--muted-foreground);
-}
-
-/* Hide scrollbar but keep functionality */
-.scrollbar-visible {
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
-}
-
-.scrollbar-thin {
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: var(--border) transparent;
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
 }
 
 

@@ -11,6 +11,33 @@ import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import { MapPin, Search, X, Check, ChevronsUpDown, Map as MapIcon, BarChart3, TrendingUp } from 'lucide-react';
+
+// Smooth animated number counter (lightweight, no external deps)
+function AnimatedValue({ value, className, suffix = '' }: { value: number; className?: string; suffix?: string }) {
+  const [display, setDisplay] = useState(value);
+  const prevRef = useRef(value);
+  const rafRef = useRef(0);
+
+  useEffect(() => {
+    if (value === prevRef.current) return;
+    const start = prevRef.current;
+    const diff = value - start;
+    const duration = 500;
+    const startTime = performance.now();
+    const animate = (now: number) => {
+      const t = Math.min((now - startTime) / duration, 1);
+      // Spring-like easing: 1 - (1-t)^4
+      const eased = 1 - Math.pow(1 - t, 4);
+      setDisplay(Math.round(start + diff * eased));
+      if (t < 1) rafRef.current = requestAnimationFrame(animate);
+    };
+    rafRef.current = requestAnimationFrame(animate);
+    prevRef.current = value;
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [value]);
+
+  return <span className={className}>{display.toLocaleString()}{suffix}</span>;
+}
 import type { AllRecords, ProductAliases, RegionItem } from '@/lib/types';
 import { loadProductAliases } from '@/lib/storage';
 import { apiComputeRegionAggregation, apiComputeRegionTrend, apiComputeOptions } from '@/lib/api';
@@ -84,6 +111,8 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
   const trendChartInstanceRef = useRef<echarts.ECharts | null>(null);
   const [selectedProduct, setSelectedProduct] = useState<string>('__ALL__');
   const [chartType, setChartType] = useState<RegionChartType>('map');
+  const [chartTransitioning, setChartTransitioning] = useState(false);
+  const [flagType, setFlagType] = useState('红色旗子');
   const [searchKeyword, setSearchKeyword] = useState('');
   const [aliases, setAliases] = useState<ProductAliases>({});
   const [comboOpen, setComboOpen] = useState(false);
@@ -225,15 +254,24 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
     if (targetProducts.length === 0 || filteredDates.length === 0 || Object.keys(records).length === 0) { setAggregatedData(null); return; }
     let cancelled = false;
     setLoading(true);
+    // Show loading animation on existing chart
+    if (chartInstanceRef.current && !chartInstanceRef.current.isDisposed()) {
+      chartInstanceRef.current.showLoading({ text: '加载中...', color: '#14b8a6', maskColor: 'rgba(255,255,255,0.7)', fontSize: 14 });
+    }
     (async () => {
       try {
-        const result = await apiComputeRegionAggregation(records, dateRange.start, dateRange.end, targetProducts);
-        if (!cancelled) setAggregatedData(result);
+        const result = await apiComputeRegionAggregation(records, dateRange.start, dateRange.end, targetProducts, flagType);
+        if (!cancelled) { setAggregatedData(result); }
       } catch (e) { if (!cancelled) setAggregatedData(null); }
-      finally { if (!cancelled) setLoading(false); }
+      finally {
+        if (!cancelled) {
+          setLoading(false);
+          if (chartInstanceRef.current && !chartInstanceRef.current.isDisposed()) chartInstanceRef.current.hideLoading();
+        }
+      }
     })();
     return () => { cancelled = true; };
-  }, [targetProducts, filteredDates, records, dateRange]);
+  }, [targetProducts, filteredDates, records, dateRange, flagType]);
 
   // Fetch trend data from backend
   useEffect(() => {
@@ -269,6 +307,44 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
   // Distribution chart
   useEffect(() => {
     if (viewMode !== 'distribution' || !chartRef.current || chartData.length === 0) return;
+
+    const needsReinit = !chartInstanceRef.current || chartInstanceRef.current.isDisposed();
+
+    if (!needsReinit && chartType === 'map') {
+      // Update data only — smooth morph transition
+      const maxCount = Math.max(...mapData.map(m => m.value), 1);
+      const sortedMapData = [...mapData].sort((a, b) => b.value - a.value);
+      const animatedMapData = sortedMapData.map((d, i) => {
+        const countScore = d.value / maxCount;
+        const tvRatio = d.value > 0 ? d.town_village / d.value : 0;
+        return { name: d.name, value: Math.round((countScore * 0.6 + tvRatio * 0.4) * 100), total: d.value, town_village: d.town_village };
+      });
+      chartInstanceRef.current.setOption({
+        animation: true,
+        animationDuration: 600,
+        animationDurationUpdate: 400,
+        animationEasing: 'cubicInOut' as const,
+        animationEasingUpdate: 'cubicInOut' as const,
+        series: [{ data: animatedMapData }]
+      }, false);
+      return;
+    }
+
+    if (!needsReinit && chartType === 'groupedBar') {
+      const townRatios = chartData.map(d => d.value > 0 ? Math.round((d.town_village / d.value) * 100) : 0);
+      chartInstanceRef.current.setOption({
+        animation: true, animationDuration: 600, animationEasing: 'cubicInOut' as const, animationDurationUpdate: 400,
+        xAxis: { data: chartData.map(d => d.name) },
+        series: [
+          { data: chartData.map(d => d.value) },
+          { data: chartData.map(d => d.town_village) },
+          { data: townRatios }
+        ]
+      }, false);
+      return;
+    }
+
+    // Full re-init for new chart type or first render
     if (chartInstanceRef.current) { try { chartInstanceRef.current.dispose(); } catch {} chartInstanceRef.current = null; }
     const chart = echarts.init(chartRef.current, 'brutal');
     chartInstanceRef.current = chart;
@@ -288,8 +364,8 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
       chart.setOption({
         tooltip: { ...TOOLTIP_STYLE, trigger: 'item', formatter: (p: any) => { if (p.value === undefined || p.value === null) return `<b>${p.name}</b><br/>暂无数据`; return buildTooltipHtml(p.name, p.data?.total || 0, p.data?.town_village || 0); } },
         visualMap: { show: true, left: 16, bottom: 16, min: 0, max: 100, text: ['高', '低'], textStyle: { fontSize: 10, color: '#64748b' }, inRange: { color: ['#d1fae5', '#6ee7b7', '#fde68a', '#fbbf24', '#f59e0b', '#ef4444'] }, calculable: true, orient: 'vertical', itemWidth: 12, itemHeight: 120 },
-        geo: { map: 'china', roam: true, zoom: 1.2, label: { show: true, fontSize: 9, color: '#94a3b8', formatter: (p: any) => p.name.replace(/省|市|自治区|特别行政区|壮族|回族|维吾尔/g, '').substring(0, 3) }, emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' as const, color: '#fff' }, itemStyle: { areaColor: '#f97316', shadowBlur: 30, shadowColor: 'rgba(249,115,22,0.5)', shadowOffsetX: 0, shadowOffsetY: 0 }, scale: 1.05 }, itemStyle: { areaColor: '#f0fdf4', borderColor: '#a7f3d0', borderWidth: 0.8 }, animation: true, animationDuration: 500, animationEasing: 'cubicOut' as const },
-        series: [{ type: 'map', map: 'china', geoIndex: 0, animationDelay: (idx: number) => idx * 40, silent: false, data: animatedMapData, label: { show: true, fontSize: 8, color: '#334155', formatter: (p: any) => { const short = p.name.replace(/省|市|自治区|特别行政区|壮族|回族|维吾尔/g, '').substring(0, 3); const total = p.data?.total ?? 0; return total > 0 ? `${short}\n${total}单` : short; } }, emphasis: { label: { show: true, fontSize: 12, fontWeight: 'bold' as const, color: '#fff' }, itemStyle: { areaColor: '#ea580c', shadowBlur: 40, shadowColor: 'rgba(249,115,22,0.6)' } } }],
+        geo: { map: 'china', roam: true, zoom: 1.2, label: { show: true, fontSize: 9, color: '#94a3b8', formatter: (p: any) => p.name.replace(/省|市|自治区|特别行政区|壮族|回族|维吾尔/g, '').substring(0, 3) }, emphasis: { label: { show: true, fontSize: 14, fontWeight: 'bold' as const, color: '#fff' }, itemStyle: { areaColor: '#f97316', shadowBlur: 30, shadowColor: 'rgba(249,115,22,0.5)', shadowOffsetX: 0, shadowOffsetY: 0 }, scale: 1.05, transitionDuration: 0.3 }, itemStyle: { areaColor: '#f0fdf4', borderColor: '#a7f3d0', borderWidth: 0.8 }, animation: true, animationDuration: 800, animationDurationUpdate: 400, animationEasing: 'sinusoidalInOut' as const, animationEasingUpdate: 'cubicInOut' as const },
+        series: [{ type: 'map', map: 'china', geoIndex: 0, animationDelay: (idx: number) => idx * 60, silent: false, data: animatedMapData, label: { show: true, fontSize: 8, color: '#334155', formatter: (p: any) => { const short = p.name.replace(/省|市|自治区|特别行政区|壮族|回族|维吾尔/g, '').substring(0, 3); const total = p.data?.total ?? 0; return total > 0 ? `${short}\n${total}单` : short; } }, emphasis: { label: { show: true, fontSize: 12, fontWeight: 'bold' as const, color: '#fff' }, itemStyle: { areaColor: '#ea580c', shadowBlur: 40, shadowColor: 'rgba(249,115,22,0.6)' }, transitionDuration: 0.25 } }],
       }, true);
       // Click handler for province detail
       chart.off('click');
@@ -309,7 +385,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
       chart.setOption({
         tooltip: { ...TOOLTIP_STYLE, trigger: 'axis', axisPointer: { type: 'shadow' }, formatter: (params: any) => { const d = chartData[params[0]?.dataIndex]; return d ? buildTooltipHtml(d.name, d.value, d.town_village) : ''; } },
         legend: { top: 0, textStyle: { fontSize: 11, color: '#64748b' }, data: [{ name: '总数', icon: 'roundRect', itemStyle: { color: '#14b8a6' } }, { name: '乡镇/村', icon: 'roundRect', itemStyle: { color: '#f59e0b' } }, { name: '乡镇占比', icon: 'line', itemStyle: { color: '#8b5cf6' } }] },
-        animation: true, animationDuration: 500, animationEasing: 'cubicOut' as const, animationDelay: (idx: number) => idx * 40,
+        animation: true, animationDuration: 700, animationEasing: 'elasticOut' as const, animationDelay: (idx: number) => idx * 50,
         grid: { left: '3%', right: '6%', bottom: chartData.length > 12 ? '18%' : '12%', top: '14%', containLabel: true },
         dataZoom: chartData.length > 6 ? [{ type: 'slider', xAxisIndex: 0, bottom: 6, height: 20, start: 0, end: Math.min(100, Math.round((8 / chartData.length) * 100)), borderColor: 'transparent', backgroundColor: '#f1f5f9', fillerColor: 'rgba(16,185,129,0.15)', handleStyle: { color: '#14b8a6' }, textStyle: { fontSize: 10, color: '#94a3b8' } }, { type: 'inside', xAxisIndex: 0 }] : undefined,
         xAxis: { type: 'category', data: chartData.map(d => d.name), axisLabel: { color: '#475569', fontSize: 10, rotate: chartData.length > 6 ? 30 : 0 }, axisLine: { lineStyle: { color: '#e2e8f0' } }, axisTick: { show: false } },
@@ -326,16 +402,33 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
   // Trend chart
   useEffect(() => {
     if (viewMode !== 'trend' || !trendChartRef.current || trendData.length === 0 || topRegions.length === 0) return;
+
+    const needsReinit = !trendChartInstanceRef.current || trendChartInstanceRef.current.isDisposed();
+
+    if (!needsReinit) {
+      // Smooth data update without re-init
+      trendChartInstanceRef.current.setOption({
+        animation: true, animationDuration: 600, animationEasing: 'cubicInOut' as const,
+        xAxis: { data: trendData.map(d => d.label) },
+        series: topRegions.map((region, i) => {
+          const c = VIVID_COLORS[i % VIVID_COLORS.length];
+          return { name: region, data: trendData.map((d: any) => (d[region] as number) || 0) };
+        }),
+      }, false);
+      return;
+    }
+
     if (trendChartInstanceRef.current) { try { trendChartInstanceRef.current.dispose(); } catch {} trendChartInstanceRef.current = null; }
     const chart = echarts.init(trendChartRef.current, 'brutal');
     trendChartInstanceRef.current = chart;
     chart.setOption({
       tooltip: { ...TOOLTIP_STYLE, trigger: 'axis' },
       legend: { type: 'scroll', bottom: 0, icon: 'roundRect', itemWidth: 14, itemHeight: 8, textStyle: { fontSize: 11, color: '#64748b' } },
+      animation: true, animationDuration: 800, animationEasing: 'sinusoidalInOut' as const, animationDelay: (idx: number) => idx * 80,
       grid: { left: '3%', right: '4%', bottom: '16%', top: '8%', containLabel: true },
       xAxis: { type: 'category', data: trendData.map(d => d.label), axisLabel: { fontSize: 11, color: '#64748b', rotate: trendData.length > 10 ? 30 : 0 } },
       yAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 11 }, splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } } },
-      series: topRegions.map((region, i) => { const c = VIVID_COLORS[i % VIVID_COLORS.length]; return { name: region, type: 'line', smooth: true, symbol: 'circle', symbolSize: 7, lineStyle: { width: 3, color: c }, data: trendData.map((d: any) => (d[region] as number) || 0) }; }) as any,
+      series: topRegions.map((region, i) => { const c = VIVID_COLORS[i % VIVID_COLORS.length]; return { name: region, type: 'line', smooth: true, symbol: 'circle', symbolSize: 7, lineStyle: { width: 3, color: c }, emphasis: { symbolSize: 10, lineStyle: { width: 5 } }, data: trendData.map((d: any) => (d[region] as number) || 0) }; }) as any,
     }, true);
     const handleResize = () => chart.resize();
     window.addEventListener('resize', handleResize);
@@ -362,17 +455,48 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        @keyframes countUp { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+        @keyframes chartReveal { from { opacity: 0; transform: translateY(24px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
         .animate-slide-up { animation: slideUp 0.35s cubic-bezier(0.16,1,0.3,1) both; }
         .animate-fade-in { animation: fadeIn 0.3s ease-out both; }
         .animate-fade-in-up { animation: fadeInUp 0.5s cubic-bezier(0.16,1,0.3,1) both; }
         .animate-scale-in { animation: scaleIn 0.4s cubic-bezier(0.16,1,0.3,1) both; }
+        .animate-chart-reveal { animation: chartReveal 0.6s cubic-bezier(0.16,1,0.3,1) both; }
+        .animate-count-up { animation: countUp 0.4s cubic-bezier(0.34,1.56,0.64,1) both; }
+        .skeleton { background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%); background-size: 200% 100%; animation: shimmer 1.8s infinite; border-radius: 8px; }
+        .skeleton-card { height: 80px; }
+        .skeleton-chart { height: 420px; margin-top: 16px; }
+        .skeleton-text { height: 14px; width: 60%; margin-bottom: 8px; }
+        .skeleton-number { height: 28px; width: 40%; }
+        @keyframes breathe { 0%, 100% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } }
+        @keyframes loadingDots { 0%, 20% { opacity: 0; } 50% { opacity: 1; } 100% { opacity: 0; } }
+        @keyframes ripple { 0% { transform: scale(0); opacity: 0.6; } 100% { transform: scale(4); opacity: 0; } }
+        @keyframes gradientShift { 0% { background-position: 0% 50%; } 50% { background-position: 100% 50%; } 100% { background-position: 0% 50%; } }
+        .animate-breathe { background-size: 200% 200%; animation: breathe 4s ease-in-out infinite; }
+        .loading-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--primary); animation: loadingDots 1.4s infinite ease-in-out both; }
+        .loading-dot:nth-child(1) { animation-delay: 0s; }
+        .loading-dot:nth-child(2) { animation-delay: 0.2s; }
+        .loading-dot:nth-child(3) { animation-delay: 0.4s; }
+        .ripple-effect { position: relative; overflow: hidden; }
+        .ripple-effect::after { content: ''; position: absolute; border-radius: 50%; background: rgba(249,115,22,0.3); width: 20px; height: 20px; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(0); opacity: 0; pointer-events: none; }
+        .ripple-effect:active::after { animation: ripple 0.6s ease-out; }
+        .tab-btn { transition: all 0.25s cubic-bezier(0.4,0,0.2,1); }
+        .tab-btn:active { transform: scale(0.95); }
+        .tab-btn-active { background: linear-gradient(135deg, var(--primary), #059669); background-size: 200% 200%; animation: gradientShift 3s ease infinite; }
         .animate-delay-1 { animation-delay: 0.05s; }
         .animate-delay-2 { animation-delay: 0.12s; }
         .animate-delay-3 { animation-delay: 0.19s; }
         .animate-delay-4 { animation-delay: 0.26s; }
         .animate-delay-5 { animation-delay: 0.33s; }
+        .animate-delay-6 { animation-delay: 0.40s; }
+        .pulse-on-update { transition: all 0.3s ease; }
+        .chart-container { transition: opacity 0.3s cubic-bezier(0.4,0,0.2,1); }
+        .chart-fading { opacity: 0.15; pointer-events: none; }
         @media (prefers-reduced-motion: reduce) {
-          .animate-slide-up, .animate-fade-in, .animate-fade-in-up, .animate-scale-in { animation: none; opacity: 1; transform: none; }
+          .animate-slide-up, .animate-fade-in, .animate-fade-in-up, .animate-scale-in, .animate-chart-reveal, .animate-count-up { animation: none; opacity: 1; transform: none; }
+          .skeleton { animation: none; background: #f1f5f9; }
         }
       `}</style>
       <Card className="brutal-card-lift sticky top-0 z-10 bg-background/98 backdrop-blur-md border-primary/10">
@@ -386,7 +510,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
                     {i > 0 && <span className="text-muted-foreground/40 px-1">/</span>}
                     <button
                       onClick={() => setTimePeriod(p)}
-                      className={`px-1.5 py-1 rounded-md transition-all duration-200 ${timePeriod === p ? 'bg-background text-foreground font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
+                      className={`tab-btn px-1.5 py-1 rounded-md ${timePeriod === p ? 'tab-btn-active text-primary-foreground font-medium shadow-sm' : 'text-muted-foreground hover:text-foreground'}`}
                     >
                       {p === 'day' ? '当日' : p === 'week' ? '当周' : p === 'month' ? '当月' : '自定义'}
                     </button>
@@ -425,7 +549,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
             </div>
           </div>
           {aggregatedData && aggregatedData.count > 1 && (
-            <div className="mt-3 px-3 py-2 rounded-lg bg-gradient-to-r from-primary/15 via-primary/10 to-primary/15 text-primary text-xs font-medium border border-primary/20">
+            <div className="mt-3 px-3 py-2 rounded-lg bg-gradient-to-r from-primary/15 via-primary/10 to-emerald-500/10 to-primary/15 text-primary text-xs font-medium border border-primary/20 animate-breathe">
               {searchKeyword.trim() ? <>关键词「{searchKeyword}」匹配 <span className="font-bold">{aggregatedData.count}</span> 个产品，{periodLabel}合计 <span className="font-bold">{aggregatedData.total}</span> 单</> : <>{periodLabel}已聚合 <span className="font-bold">{aggregatedData.count}</span> 个产品，合计 <span className="font-bold">{aggregatedData.total}</span> 单 · {filteredDates.length} 天数据</>}
             </div>
           )}
@@ -433,33 +557,77 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
       </Card>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-4">
-          <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 p-4 shadow-sm hover:shadow-md transition-shadow animate-fade-in-up animate-delay-1">
-            <div className="text-[11px] text-muted-foreground mb-1.5">覆盖省份</div>
-            <div className="text-2xl font-black text-primary tabular-nums">{chartData.length}</div>
-          </div>
-          <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4 shadow-sm hover:shadow-md transition-shadow animate-fade-in-up animate-delay-2">
-            <div className="text-[11px] text-muted-foreground mb-1.5">售后总数</div>
-            <div className="text-2xl font-black text-emerald-600 tabular-nums">{totalValue}</div>
-          </div>
-          <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-amber-500/5 p-4 shadow-sm hover:shadow-md transition-shadow animate-fade-in-up animate-delay-3">
-            <div className="text-[11px] text-muted-foreground mb-1.5">乡镇/村</div>
-            <div className="text-2xl font-black text-amber-600 tabular-nums">{totalTownVillage}</div>
-          </div>
-          <div className="rounded-xl border border-orange-500/20 bg-gradient-to-br from-orange-500/10 to-orange-500/5 p-4 shadow-sm hover:shadow-md transition-shadow animate-fade-in-up animate-delay-4">
-            <div className="text-[11px] text-muted-foreground mb-1.5">乡镇占比</div>
-            <div className="text-2xl font-black text-orange-600 tabular-nums">{totalValue > 0 ? ((totalTownVillage / totalValue) * 100).toFixed(1) : '0.0'}%</div>
-          </div>
+          {loading ? (
+            <>
+              {[0, 1, 2, 3].map(i => (
+                <div key={i} className="rounded-xl border border-border/30 p-4 shadow-sm">
+                  <div className="skeleton skeleton-text" />
+                  <div className="skeleton skeleton-number" style={{ marginTop: 12 }} />
+                </div>
+              ))}
+            </>
+          ) : (
+            <>
+              <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 p-4 shadow-sm hover:shadow-md transition-all duration-300 animate-fade-in-up animate-delay-1 pulse-on-update ripple-effect">
+                <div className="text-[11px] text-muted-foreground mb-1.5">覆盖省份</div>
+                <AnimatedValue value={chartData.length} className="text-2xl font-black text-primary tabular-nums" />
+              </div>
+              <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4 shadow-sm hover:shadow-md transition-all duration-300 animate-fade-in-up animate-delay-2 pulse-on-update">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <span className="text-[11px] text-muted-foreground">售后总数</span>
+                  <select value={flagType} onChange={e => setFlagType(e.target.value)}
+                    className="text-[10px] px-1.5 py-0 h-4 rounded-sm font-medium border border-red-300 text-red-600 bg-red-50 cursor-pointer outline-none"
+                    style={flagType === '总数' ? { borderColor: '#94a3b8', color: '#475569', backgroundColor: '#f8fafc' } : flagType === '绿色旗子' ? { borderColor: '#86efac', color: '#16a34a', backgroundColor: '#f0fdf4' } : {}}>
+                    <option value="红色旗子">红旗</option>
+                    <option value="绿色旗子">绿旗</option>
+                    <option value="总数">总数</option>
+                  </select>
+                </div>
+                <AnimatedValue value={totalValue} className="text-2xl font-black text-emerald-600 tabular-nums" />
+              </div>
+              <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-amber-500/5 p-4 shadow-sm hover:shadow-md transition-all duration-300 animate-fade-in-up animate-delay-3 pulse-on-update">
+                <div className="text-[11px] text-muted-foreground mb-1.5">乡镇/村</div>
+                <AnimatedValue value={totalTownVillage} className="text-2xl font-black text-amber-600 tabular-nums" />
+              </div>
+              <div className="rounded-xl border border-orange-500/20 bg-gradient-to-br from-orange-500/10 to-orange-500/5 p-4 shadow-sm hover:shadow-md transition-all duration-300 animate-fade-in-up animate-delay-4 pulse-on-update">
+                <div className="text-[11px] text-muted-foreground mb-1.5">乡镇占比</div>
+                <span className="text-2xl font-black text-orange-600 tabular-nums">{totalValue > 0 ? ((totalTownVillage / totalValue) * 100).toFixed(1) : '0.0'}%</span>
+              </div>
+            </>
+          )}
         </div>
 
       {viewMode === 'distribution' && (
-        <Card className="brutal-card-lift border-primary/10 animate-scale-in animate-delay-3">
+        <Card className="brutal-card-lift border-primary/10 animate-chart-reveal animate-delay-3">
           <CardHeader className="pb-2 border-b border-border/50">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div><CardTitle className="text-sm font-bold flex items-center gap-2">{chartType === 'map' ? <MapIcon className="h-4 w-4 text-primary" /> : <BarChart3 className="h-4 w-4 text-primary" />}{chartType === 'map' ? '中国地域分布图' : '纵向分组柱状图'}<Badge className="ml-1.5 text-xs bg-primary/15 text-primary border-0">{periodLabel} · {filteredDates.length}天</Badge></CardTitle></div>
-              <div className="flex gap-1.5">{CHART_OPTIONS.map(opt => (<Button key={opt.value} variant={chartType === opt.value ? 'default' : 'outline'} size="sm" className={`h-7 px-3 text-[11px] gap-1.5 ${chartType === opt.value ? 'bg-primary text-primary-foreground shadow-md' : ''}`} onClick={() => setChartType(opt.value)}>{opt.icon}{opt.label}</Button>))}</div>
+              <div className="flex gap-1.5">{CHART_OPTIONS.map(opt => (<Button key={opt.value} variant={chartType === opt.value ? 'default' : 'outline'} size="sm" className={`h-7 px-3 text-[11px] gap-1.5 transition-all duration-200 ${chartType === opt.value ? 'bg-primary text-primary-foreground shadow-md' : ''}`} onClick={() => {
+                if (chartType !== (opt.value as RegionChartType)) {
+                  setChartTransitioning(true);
+                  setTimeout(() => {
+                    setChartType(opt.value as RegionChartType);
+                    setTimeout(() => setChartTransitioning(false), 50);
+                  }, 200);
+                }
+              }}>{opt.icon}{opt.label}</Button>))}</div>
             </div>
           </CardHeader>
-          <CardContent className="pt-4">{chartData.length === 0 ? (<div className="flex items-center justify-center h-[360px] text-muted-foreground text-sm">{loading ? '计算中...' : '暂无地域分布数据'}</div>) : (
+          <CardContent className="pt-4">
+            {loading ? (
+              <div className="skeleton skeleton-chart" style={{ borderRadius: 12 }}>
+                <div className="flex items-center justify-center h-full gap-2">
+                  <span className="loading-dot" />
+                  <span className="loading-dot" />
+                  <span className="loading-dot" />
+                </div>
+              </div>
+            ) : chartData.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-[360px] text-muted-foreground gap-3 animate-fade-in">
+                <MapPin className="h-10 w-10 opacity-20" />
+                <p className="text-sm">暂无地域分布数据</p>
+              </div>
+            ) : (
             <div className="relative">
               {/* Province detail overlay */}
               {selectedProvince && chartType === 'map' && (
@@ -479,7 +647,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
                   </div>
                 </div>
               )}
-              <div ref={chartRef} className="w-full" style={{ minHeight: '400px' }} />
+              <div ref={chartRef} className={`w-full chart-container ${chartTransitioning ? 'chart-fading' : ''}`} style={{ minHeight: chartType === 'map' ? '620px' : '460px', ...(chartTransitioning ? { pointerEvents: 'none' } : {}) }} />
               {chartType === 'groupedBar' && (
                 <div
                   onMouseDown={handleResizeStart}
@@ -495,7 +663,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
       )}
 
       {viewMode === 'trend' && (
-        <Card className="brutal-card-lift border-primary/10 animate-scale-in animate-delay-3">
+        <Card className="brutal-card-lift border-primary/10 animate-chart-reveal animate-delay-3">
           <CardHeader className="pb-2 border-b border-border/50">
             <div className="flex items-center justify-between flex-wrap gap-3">
               <div><CardTitle className="text-sm font-bold flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary" />地域趋势分布<Badge className="ml-1.5 text-xs bg-primary/15 text-primary border-0">{periodLabel} · {selectedRegions.length > 0 ? `已选 ${selectedRegions.length}` : `Top ${topRegions.length}`} 省份</Badge></CardTitle></div>
@@ -510,7 +678,12 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
               </Popover>
             </div>
           </CardHeader>
-          <CardContent className="pt-4">{trendData.length === 0 || topRegions.length === 0 ? (<div className="flex items-center justify-center h-[360px] text-muted-foreground text-sm">暂无趋势数据</div>) : (<div ref={trendChartRef} className="w-full h-[420px]" />)}</CardContent>
+          <CardContent className="pt-4">{trendData.length === 0 || topRegions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-[360px] text-muted-foreground gap-3 animate-fade-in">
+              <TrendingUp className="h-10 w-10 opacity-20" />
+              <p className="text-sm">暂无趋势数据</p>
+            </div>
+          ) : (<div ref={trendChartRef} className="w-full h-[420px]" />)}</CardContent>
         </Card>
       )}
     </div>
