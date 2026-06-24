@@ -1,12 +1,11 @@
 # Nixpacks configuration
-# Add Python alongside Node.js for the FastAPI backend
+# Node.js is auto-detected from package.json. Python 3.11 added manually.
 
 [phases.setup]
 nixPkgs = ["python311", "python311Packages.pip"]
 
-[phases.install]
-cmds = [
-  "pnpm install",
-  "cd backend && python3 -m pip install -r requirements.txt && cd ..",
-  "pnpm build"
-]
+[phases.build]
+cmds = ["cd backend && pip install -r requirements.txt"]
+
+[start]
+cmd = "bash start.sh"
