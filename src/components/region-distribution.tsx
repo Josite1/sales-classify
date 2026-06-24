@@ -362,9 +362,12 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
       `}</style>
       <Card className="brutal-card-lift sticky top-0 z-10 bg-background/98 backdrop-blur-md border-primary/10">
         <CardHeader className="pb-2">
-          <div className="flex items-center justify-between gap-4 flex-wrap">
-            <div><CardTitle className="text-base font-bold flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" />地域分布分析</CardTitle><CardDescription className="text-xs mt-1">按省份查看红色旗子售后地域分布</CardDescription></div>
-            <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-2 shrink-0">
+              <CardTitle className="text-base font-bold flex items-center gap-2"><MapPin className="h-4 w-4 text-primary" />地域分布分析</CardTitle>
+              <CardDescription className="text-xs hidden sm:block">按省份查看售后地域分布</CardDescription>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
               <div className="flex items-center gap-0.5 bg-muted/60 rounded-lg p-0.5">
                 {(['day', 'week', 'month', 'custom'] as TimePeriod[]).map(p => (
                   <Button
@@ -372,37 +375,27 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
                     variant={timePeriod === p ? 'default' : 'ghost'}
                     size="sm"
                     onClick={() => setTimePeriod(p)}
-                    className="h-7 text-xs px-2.5 transition-all duration-200"
+                    className="h-7 text-xs px-2 transition-all duration-200"
                   >
                     {p === 'day' ? '当日' : p === 'week' ? '当周' : p === 'month' ? '当月' : '自定义'}
                   </Button>
                 ))}
               </div>
               {timePeriod === 'custom' && (
-                <div className="flex items-center gap-1.5 animate-fade-in">
-                  <Input
-                    type="date"
-                    value={customStart || (selectedDate || '')}
-                    onChange={e => setCustomStart(e.target.value)}
-                    className="h-7 text-xs w-[130px] font-mono"
-                  />
+                <div className="flex items-center gap-1 animate-fade-in">
+                  <Input type="date" value={customStart || (selectedDate || '')} onChange={e => setCustomStart(e.target.value)} className="h-7 text-xs w-[122px] font-mono px-1.5" />
                   <span className="text-xs text-muted-foreground">~</span>
-                  <Input
-                    type="date"
-                    value={customEnd || (selectedDate || '')}
-                    onChange={e => setCustomEnd(e.target.value)}
-                    className="h-7 text-xs w-[130px] font-mono"
-                  />
+                  <Input type="date" value={customEnd || (selectedDate || '')} onChange={e => setCustomEnd(e.target.value)} className="h-7 text-xs w-[122px] font-mono px-1.5" />
                 </div>
               )}
-              <div className="flex items-center gap-1.5 bg-muted/60 rounded-lg p-0.5">
-                <Button variant={viewMode === 'distribution' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('distribution')} className="h-7 text-xs px-2.5"><BarChart3 className="h-3.5 w-3.5 mr-1" />分布</Button>
-                <Button variant={viewMode === 'trend' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('trend')} className="h-7 text-xs px-2.5"><TrendingUp className="h-3.5 w-3.5 mr-1" />趋势</Button>
+              <div className="flex items-center gap-0.5 bg-muted/60 rounded-lg p-0.5">
+                <Button variant={viewMode === 'distribution' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('distribution')} className="h-7 text-xs px-2"><BarChart3 className="h-3.5 w-3.5 mr-1" />分布</Button>
+                <Button variant={viewMode === 'trend' ? 'default' : 'ghost'} size="sm" onClick={() => setViewMode('trend')} className="h-7 text-xs px-2"><TrendingUp className="h-3.5 w-3.5 mr-1" />趋势</Button>
               </div>
-              <div className="relative w-[200px]">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
-                <Input placeholder="搜索产品聚合..." value={searchKeyword} onChange={e => setSearchKeyword(e.target.value)} className="!pl-9 h-8 text-xs" />
-                {searchKeyword && <button onClick={() => setSearchKeyword('')} className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>}
+              <div className="relative w-[150px]">
+                <Search className="absolute left-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-muted-foreground" />
+                <Input placeholder="搜索..." value={searchKeyword} onChange={e => setSearchKeyword(e.target.value)} className="!pl-7 h-7 text-xs" />
+                {searchKeyword && <button onClick={() => setSearchKeyword('')} className="absolute right-1.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"><X className="h-3 w-3" /></button>}
               </div>
               <Popover open={comboOpen} onOpenChange={setComboOpen}>
                 <PopoverTrigger asChild>
