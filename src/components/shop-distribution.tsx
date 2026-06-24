@@ -228,7 +228,7 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
     if (viewMode !== 'trend' || !trendChartRef.current || trendData.length === 0 || topShops.length === 0) return;
     const needsReinit = !trendChartInstanceRef.current || trendChartInstanceRef.current.isDisposed();
     if (!needsReinit) {
-      trendChartInstanceRef.current.setOption({
+      trendChartInstanceRef.current?.setOption({
         animation: true, animationDuration: 600, animationEasing: 'cubicInOut' as const,
         xAxis: { data: trendData.map(d => d.label) },
         series: topShops.map((s, i) => { const c = VIVID_COLORS[i % VIVID_COLORS.length]; return { name: s, data: trendData.map((d: any) => (d[s] as number) || 0) }; }),
