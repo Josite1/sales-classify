@@ -135,7 +135,7 @@ function SharedDashboard({ sharedData }: { sharedData: SharedData }) {
                             if (!record) return null;
                             let dayTotal = 0;
                             for (const pd of Object.values(record.data)) {
-                              dayTotal += Number((pd as Record<string, unknown>).total || 0);
+                              dayTotal += Number((pd as unknown as Record<string, unknown>).total || 0);
                             }
                             const isSelected = date === selectedDate;
 
