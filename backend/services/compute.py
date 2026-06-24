@@ -589,6 +589,7 @@ def compute_trend_data(
             month_dates = get_dates_in_range(month_start.isoformat(), month_end.isoformat())
 
             agg = {'totalOrders': 0, 'redFlags': 0, 'greenFlags': 0, 'greyFlags': 0,
+                   'yellowFlags': 0, 'purpleFlags': 0,
                    'products': {}, 'reasons': {}}
             for d_str in month_dates:
                 s = _compute_single_day_summary(d_str, records.get(d_str), selected_products, selected_shops, aliases)
