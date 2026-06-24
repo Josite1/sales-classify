@@ -21,7 +21,7 @@ for i in $(seq 1 30); do
 done
 
 echo "[railway] Starting Next.js frontend on port ${PORT:-3000}..."
-node node_modules/.bin/next start -p "${PORT:-3000}" &
+npx next start -p "${PORT:-3000}" &
 FRONTEND_PID=$!
 
 # Forward signals to both processes
