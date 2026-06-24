@@ -1,15 +1,21 @@
-﻿'''
+'''
 Excel import and keyword management API routes.
+Controllers are thin: receive request, call service, return JSON.
 '''
 import io
 from typing import Dict
 from fastapi import APIRouter, UploadFile, File, HTTPException
 from services.excel_processor import ExcelProcessor
-from utils.database import get_supabase_client
-from uuid import uuid4
+from services.keyword_rules import (
+    get_reason_rules as svc_get_reason_rules,
+    get_product_rules as svc_get_product_rules,
+    get_all_rules as svc_get_all_rules,
+    set_reason_rules as svc_set_reason_rules,
+    set_product_rules as svc_set_product_rules,
+)
+from services.rules_import import import_rules_from_excel as svc_import_rules
 
 router = APIRouter(prefix='/api/excel', tags=['excel'])
-
 
 
 @router.post('/import')
@@ -17,10 +23,7 @@ async def import_excel(
     sales_file: UploadFile = File(...),
     rules_file: UploadFile = File(...),
 ):
-    '''
-    Import sales Excel directly, using keyword rules Excel.
-    Returns the classified JSON result.
-    '''
+    '''Import sales Excel using keyword rules Excel. Returns classified JSON.'''
     if not sales_file.filename or not rules_file.filename:
         raise HTTPException(400, 'Both sales_file and rules_file are required')
 
@@ -40,17 +43,13 @@ async def import_excel(
 
 
 @router.post('/import-with-rules')
-async def import_excel_with_rules(
-    sales_file: UploadFile = File(...),
-):
+async def import_excel_with_rules(sales_file: UploadFile = File(...)):
+    '''Import sales Excel using rules already stored in database.'''
     if not sales_file.filename:
         raise HTTPException(400, 'sales_file is required')
 
-    supabase = get_supabase_client()
-    reasons_result = supabase.table('keyword_rules').select('category, keywords').eq('rule_type', 'reasons').order('sort_order').execute()
-    products_result = supabase.table('keyword_rules').select('category, keywords').eq('rule_type', 'products').order('sort_order').execute()
-    reasons = [{'category': r['category'], 'keywords': r['keywords']} for r in reasons_result.data]
-    products = [{'category': r['category'], 'keywords': r['keywords']} for r in products_result.data]
+    reasons = svc_get_reason_rules()
+    products = svc_get_product_rules()
 
     if not reasons or not products:
         raise HTTPException(400, 'No keyword rules configured. Please set up rules first.')
@@ -68,64 +67,36 @@ async def import_excel_with_rules(
 
     return {'success': True, 'data': result}
 
-# ---- Keyword Rules CRUD ----
+
+# ---- Keyword Rules CRUD (thin controllers) ----
+
 @router.get('/rules/reasons')
 async def get_reason_rules():
-    supabase = get_supabase_client()
-    result = supabase.table('keyword_rules') \
-        .select('category, keywords') \
-        .eq('rule_type', 'reasons') \
-        .order('sort_order') \
-        .execute()
-    return {'reasons': [{'category': r['category'], 'keywords': r['keywords']} for r in result.data]}
+    return {'reasons': svc_get_reason_rules()}
 
 
 @router.put('/rules/reasons')
 async def set_reason_rules(payload: Dict):
-    supabase = get_supabase_client()
     reasons = payload.get('reasons', [])
-    supabase.table('keyword_rules').delete().eq('rule_type', 'reasons').execute()
-    for i, rule in enumerate(reasons):
-        supabase.table('keyword_rules').insert({
-            'id': str(uuid4()), 'rule_type': 'reasons',
-            'category': rule['category'], 'keywords': rule['keywords'], 'sort_order': i,
-        }).execute()
+    svc_set_reason_rules(reasons)
     return {'success': True, 'reasons': reasons}
 
 
 @router.get('/rules/products')
 async def get_product_rules():
-    supabase = get_supabase_client()
-    result = supabase.table('keyword_rules') \
-        .select('category, keywords') \
-        .eq('rule_type', 'products') \
-        .order('sort_order') \
-        .execute()
-    return {'products': [{'category': r['category'], 'keywords': r['keywords']} for r in result.data]}
+    return {'products': svc_get_product_rules()}
 
 
 @router.put('/rules/products')
 async def set_product_rules(payload: Dict):
-    supabase = get_supabase_client()
     products = payload.get('products', [])
-    supabase.table('keyword_rules').delete().eq('rule_type', 'products').execute()
-    for i, rule in enumerate(products):
-        supabase.table('keyword_rules').insert({
-            'id': str(uuid4()), 'rule_type': 'products',
-            'category': rule['category'], 'keywords': rule['keywords'], 'sort_order': i,
-        }).execute()
+    svc_set_product_rules(products)
     return {'success': True, 'products': products}
 
 
 @router.get('/rules/all')
 async def get_all_rules():
-    supabase = get_supabase_client()
-    reasons = supabase.table('keyword_rules').select('category, keywords').eq('rule_type', 'reasons').order('sort_order').execute()
-    products = supabase.table('keyword_rules').select('category, keywords').eq('rule_type', 'products').order('sort_order').execute()
-    return {
-        'reasons': [{'category': r['category'], 'keywords': r['keywords']} for r in reasons.data],
-        'products': [{'category': r['category'], 'keywords': r['keywords']} for r in products.data],
-    }
+    return svc_get_all_rules()
 
 
 # ---- Rules import from Excel ----
@@ -138,19 +109,10 @@ async def import_rules_from_excel(rules_file: UploadFile = File(...)):
         rules_bytes = io.BytesIO(await rules_file.read())
     except Exception as e:
         raise HTTPException(400, f'Failed to read file: {e}')
-    import pandas as pd
+
     try:
-        reason_df = pd.read_excel(rules_bytes, sheet_name='售后原因')
-        product_df = pd.read_excel(rules_bytes, sheet_name='品类')
-        reasons = [{'category': str(row['分类']), 'keywords': str(row['关键词'])} for _, row in reason_df.iterrows() if not pd.isna(row['关键词'])]
-        products = [{'category': str(row['品']), 'keywords': str(row['关键词'])} for _, row in product_df.iterrows() if not pd.isna(row['关键词'])]
-        supabase = get_supabase_client()
-        supabase.table('keyword_rules').delete().eq('rule_type', 'reasons').execute()
-        supabase.table('keyword_rules').delete().eq('rule_type', 'products').execute()
-        for i, r in enumerate(reasons):
-            supabase.table('keyword_rules').insert({'id': str(uuid4()), 'rule_type': 'reasons', 'category': r['category'], 'keywords': r['keywords'], 'sort_order': i}).execute()
-        for i, p in enumerate(products):
-            supabase.table('keyword_rules').insert({'id': str(uuid4()), 'rule_type': 'products', 'category': p['category'], 'keywords': p['keywords'], 'sort_order': i}).execute()
+        result = svc_import_rules(rules_bytes)
     except Exception as e:
         raise HTTPException(500, f'Failed to parse rules Excel: {e}')
-    return {'success': True, 'reasons': reasons, 'products': products}
+
+    return {'success': True, **result}

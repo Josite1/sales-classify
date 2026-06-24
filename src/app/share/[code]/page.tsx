@@ -17,7 +17,7 @@ import { ProductAnalysis } from '@/components/product-analysis';
 import { RegionDistribution } from '@/components/region-distribution';
 import { ShopDistribution } from '@/components/shop-distribution';
 import type { AllRecords, ProductAliases } from '@/lib/types';
-import { getProductTotal } from '@/lib/store';
+import { getProductTotal } from '@/lib/compute-service';;
 
 const APP_ICON = 'https://coze-coding-project.tos.coze.site/gen_project_icon/2026-05-30/7645517311235096639_1780111991.png?sign=4902517311-4ba811436f-0-6207045dfb96dda9f5cfb2c0edb03ab52b738bcf67e23aa39efb51d47ce44009';
 

@@ -7,3 +7,4 @@ supabase
 python-jose
 pandas
 openpyxl
+numpy

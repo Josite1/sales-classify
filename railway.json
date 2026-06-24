@@ -1,12 +1,12 @@
 {
   "build": {
-    "buildCommand": "pnpm install && pnpm build"
+    "buildCommand": "pnpm install && cd backend && python -m pip install -r requirements.txt && cd .. && pnpm build"
   },
   "deploy": {
-    "startCommand": "pnpm start",
+    "startCommand": "bash start.sh",
     "healthcheckPath": "/api/health",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 10,
-    "timeout": 60000 
+    "timeout": 120000
   }
 }

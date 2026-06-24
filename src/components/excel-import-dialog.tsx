@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, Upload, FileSpreadsheet, Loader2, ExternalLink } from 'lucide-react';
-import { addDateRecord } from '@/lib/store';
+import { addDateRecord } from '@/lib/records-service';;
 import type { AllRecords, ProductData } from '@/lib/types';
 import Link from 'next/link';
 

@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Textarea } from '@/components/ui/textarea';
 import { ChevronLeft, ChevronRight, Pencil, Trash2, FileJson, CalendarDays, ChevronDown, ChevronUp } from 'lucide-react';
 import type { DateRecord } from '@/lib/types';
-import { getProductTotal, saveAllRecords } from '@/lib/store';
+import { saveAllRecords } from '@/lib/storage';
 
 interface DateRecordsPanelProps {
   records: Record<string, DateRecord>;
@@ -219,7 +219,8 @@ export default function DateRecordsPanel({
     const productCount = Object.keys(record.data).length;
     let totalOrders = 0;
     for (const productData of Object.values(record.data)) {
-      totalOrders += getProductTotal(productData);
+      const t = (productData as any)?.total;
+      if (typeof t === 'number') totalOrders += t;
     }
     return { productCount, totalOrders };
   }
@@ -491,7 +492,8 @@ export default function DateRecordsPanel({
                       const productCount = Object.keys(record.data).length;
                       let totalOrders = 0;
                       for (const productData of Object.values(record.data)) {
-                        totalOrders += getProductTotal(productData);
+                        const t = (productData as any)?.total;
+                        if (typeof t === 'number') totalOrders += t;
                       }
                       const isSelected = date === selectedDate;
 

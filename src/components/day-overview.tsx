@@ -1,4 +1,4 @@
-﻿'use client';
+'use client';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -26,15 +26,10 @@ import {
 } from 'lucide-react';
 import { registerBrutalTheme, getBrutalTooltip, getBrutalGrid, getBrutalXAxis, getBrutalYAxis, BRUTAL_COLORS } from '@/lib/echarts-theme';
 import * as echarts from 'echarts';
-import type { AllRecords, ProductAliases, ShopItem } from '@/lib/types';
-import {
-  getProductTotal,
-  getProductDisplayName,
-  loadProductAliases,
-  getFlags,
-  getRedFlagReasons,
-  getShopCount
-} from '@/lib/store';
+import type { AllRecords, ProductAliases } from '@/lib/types';
+import { loadProductAliases } from '@/lib/storage';
+import { getProductDisplayName } from '@/lib/compute-service';
+import { apiComputeFilteredSummary, apiComputeOptions } from '@/lib/api';
 
 // Register brutalist theme
 if (typeof window !== 'undefined') {
@@ -48,7 +43,7 @@ interface DayOverviewProps {
   selectedDate: string | null;
 }
 
-// ============ 日期范围工具函数（保持不变） ============
+// ============ 日期范围工具函数（前端纯 UI 展示，无业务逻辑） ============
 function getISOWeekRange(dateStr: string): { start: string; end: string } {
   const d = new Date(dateStr);
   const day = d.getDay();
@@ -79,7 +74,7 @@ function getYearRange(dateStr: string): { start: string; end: string } {
   return { start: `${year}-01-01`, end: `${year}-12-31` };
 }
 
-// ============ 多选下拉组件（保持不变） ============
+// ============ 多选下拉组件（纯 UI） ============
 function MultiSelect({
   title,
   options,
@@ -188,102 +183,13 @@ function MultiSelect({
   );
 }
 
-// ============ 数据聚合函数（保持不变） ============
-interface FilteredSummary {
-  totalOrders: number;
-  redFlags: number;
-  productBreakdown: { name: string; total: number; redFlags: number }[];
-  topReasons: [string, number][];
-}
-
-function computeFilteredSummary(
-  records: AllRecords,
-  startDate: string,
-  endDate: string,
-  selectedProducts: string[],
-  selectedShops: string[]
-): FilteredSummary | null {
-  let totalOrders = 0;
-  let redFlags = 0;
-  const productMap: Record<string, { total: number; redFlags: number; reasons: Record<string, number> }> = {};
-
-  const dates = Object.keys(records).filter((d) => d >= startDate && d <= endDate);
-  if (dates.length === 0) return null;
-
-  dates.forEach((d) => {
-    const record = records[d];
-    Object.entries(record.data).forEach(([pName, pData]) => {
-      if (selectedProducts.length > 0 && !selectedProducts.includes(pName)) return;
-
-      let pTotal = 0;
-      let pRedFlags = 0;
-
-      if (selectedShops.length > 0) {
-        const shopStats = pData['店铺分类'] || {};
-        let hasMatch = false;
-
-        Object.entries(shopStats).forEach(([flag, shopsInFlag]) => {
-          if (!shopsInFlag || typeof shopsInFlag !== 'object') return;
-          Object.entries(shopsInFlag as Record<string, ShopItem | number>).forEach(([sName, shopVal]) => {
-            if (selectedShops.includes(sName)) {
-              const count = getShopCount(shopVal);
-              hasMatch = true;
-              pTotal += count;
-              if (flag === '红色旗子') pRedFlags += count;
-            }
-          });
-        });
-
-        if (!hasMatch) return;
-      } else {
-        pTotal = getProductTotal(pData);
-        pRedFlags = getFlags(pData)['红色旗子'] || 0;
-      }
-
-      if (pTotal === 0) return;
-
-      totalOrders += pTotal;
-      redFlags += pRedFlags;
-
-      if (!productMap[pName]) productMap[pName] = { total: 0, redFlags: 0, reasons: {} };
-      productMap[pName].total += pTotal;
-      productMap[pName].redFlags += pRedFlags;
-
-      const reasons = getRedFlagReasons(pData);
-      Object.entries(reasons).forEach(([r, c]) => {
-        productMap[pName].reasons[r] = (productMap[pName].reasons[r] || 0) + c;
-      });
-    });
-  });
-
-  if (totalOrders === 0) return null;
-
-  const productBreakdown = Object.entries(productMap)
-    .map(([name, data]) => ({ name, total: data.total, redFlags: data.redFlags }))
-    .sort((a, b) => b.total - a.total);
-
-  const reasonAgg: Record<string, number> = {};
-  Object.values(productMap).forEach((d) => {
-    Object.entries(d.reasons).forEach(([r, c]) => {
-      reasonAgg[r] = (reasonAgg[r] || 0) + c;
-    });
-  });
-  const topReasons = Object.entries(reasonAgg)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10);
-
-  return { totalOrders, redFlags, productBreakdown, topReasons };
-}
-
-// ============ 产品售后排名柱状图组件（保持不变） ============
-interface GlobalProductColumnProps {
-  products: { originalName: string; name: string; value: number }[];
-  dateLabel: string;
-}
-
+// ============ 产品售后排名柱状图组件（纯 UI） ============
 const BAR_COLORS = BRUTAL_COLORS;
 
-function GlobalProductColumn({ products, dateLabel }: GlobalProductColumnProps) {
+function GlobalProductColumn({ products, dateLabel }: {
+  products: { originalName: string; name: string; value: number }[];
+  dateLabel: string;
+}) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<echarts.ECharts | null>(null);
 
@@ -428,6 +334,16 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
 
   const [aliases, setAliases] = useState<ProductAliases>({});
 
+  // API-computed states
+  const [summary, setSummary] = useState<any>(null);
+  const [prevSummary, setPrevSummary] = useState<any>(null);
+  const [summaryLoading, setSummaryLoading] = useState(false);
+  const [productOptions, setProductOptions] = useState<{ label: string; value: string; count: number }[]>([]);
+  const [shopOptions, setShopOptions] = useState<{ label: string; value: string; count: number }[]>([]);
+  const [allProducts, setAllProducts] = useState<string[]>([]);
+  const [allShops, setAllShops] = useState<string[]>([]);
+  const [optionsLoading, setOptionsLoading] = useState(false);
+
   useEffect(() => {
     setAliases(loadProductAliases());
   }, []);
@@ -451,7 +367,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
     }
   }, [selectedDate]);
 
-  // 日期范围
+  // 日期范围（纯 UI 计算，无业务逻辑）
   const dateRange = useMemo(() => {
     if (!selectedDate) return null;
     switch (timeMode) {
@@ -471,99 +387,36 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
     }
   }, [selectedDate, timeMode, customStart, customEnd]);
 
-  // 动态选项数量（逻辑不变）
-  const { productOptions, shopOptions, allShops, allProducts } = useMemo(() => {
-    const productCount: Record<string, number> = {};
-    const shopCount: Record<string, number> = {};
-    const productsSet = new Set<string>();
-    const shopsSet = new Set<string>();
-
-    if (!dateRange) {
-      return {
-        productOptions: [],
-        shopOptions: [],
-        allShops: [] as string[],
-        allProducts: [] as string[],
-      };
+  // Fetch options from backend API
+  useEffect(() => {
+    if (!dateRange || Object.keys(records).length === 0) {
+      setProductOptions([]);
+      setShopOptions([]);
+      setAllProducts([]);
+      setAllShops([]);
+      return;
     }
-
-    const dates = Object.keys(records).filter(
-      (d) => d >= dateRange.start && d <= dateRange.end
-    );
-
-    // 收集全集
-    dates.forEach((d) => {
-      const record = records[d];
-      Object.entries(record.data).forEach(([pName, pData]) => {
-        productsSet.add(pName);
-        const shopStats = pData['店铺分类'] || {};
-        Object.values(shopStats).forEach((shopsInFlag) => {
-          if (!shopsInFlag || typeof shopsInFlag !== 'object') return;
-          Object.keys(shopsInFlag as Record<string, ShopItem | number>).forEach((s) => shopsSet.add(s));
-        });
-      });
-    });
-
-    productsSet.forEach((p) => (productCount[p] = 0));
-    shopsSet.forEach((s) => (shopCount[s] = 0));
-
-    dates.forEach((d) => {
-      const record = records[d];
-      Object.entries(record.data).forEach(([pName, pData]) => {
-        const shopStats = pData['店铺分类'] || {};
-
-        if (selectedShops.length > 0) {
-          let pTotal = 0;
-          Object.entries(shopStats).forEach(([, shopsInFlag]) => {
-            if (!shopsInFlag || typeof shopsInFlag !== 'object') return;
-            Object.entries(shopsInFlag as Record<string, ShopItem | number>).forEach(([sName, shopVal]) => {
-              if (selectedShops.includes(sName)) {
-                pTotal += getShopCount(shopVal);
-              }
-            });
-          });
-          if (pTotal > 0) productCount[pName] += pTotal;
-        } else {
-          productCount[pName] += getProductTotal(pData);
+    let cancelled = false;
+    setOptionsLoading(true);
+    (async () => {
+      try {
+        const result = await apiComputeOptions(records, dateRange.start, dateRange.end, selectedProducts, selectedShops, aliases);
+        if (!cancelled) {
+          setProductOptions(result.productOptions);
+          setShopOptions(result.shopOptions);
+          setAllProducts(result.allProducts);
+          setAllShops(result.allShops);
         }
-
-        if (selectedProducts.length > 0 && !selectedProducts.includes(pName)) {
-          return;
-        }
-        Object.entries(shopStats).forEach(([, shopsInFlag]) => {
-          if (!shopsInFlag || typeof shopsInFlag !== 'object') return;
-          Object.entries(shopsInFlag as Record<string, ShopItem | number>).forEach(([sName, shopVal]) => {
-            shopCount[sName] += getShopCount(shopVal);
-          });
-        });
-      });
-    });
-
-    const productOptions = Array.from(productsSet)
-      .map((p) => ({
-        label: getProductDisplayName(p, aliases),
-        value: p,
-        count: productCount[p] || 0,
-      }))
-      .sort((a, b) => b.count - a.count);
-
-    const shopOptions = Array.from(shopsSet)
-      .map((s) => ({
-        label: s,
-        value: s,
-        count: shopCount[s] || 0,
-      }))
-      .sort((a, b) => b.count - a.count);
-
-    return {
-      productOptions,
-      shopOptions,
-      allShops: Array.from(shopsSet),
-      allProducts: Array.from(productsSet),
-    };
+      } catch (e) {
+        // Fallback silently
+      } finally {
+        if (!cancelled) setOptionsLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [records, dateRange, selectedProducts, selectedShops, aliases]);
 
-  // 聚合搜索自动选中（逻辑不变）
+  // 聚合搜索自动选中
   useEffect(() => {
     const keyword = debouncedSearch.toLowerCase();
     if (!keyword || allShops.length === 0) return;
@@ -572,10 +425,8 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
       s.toLowerCase().includes(keyword)
     );
     const matchedProducts = allProducts.filter((p) => {
-      const displayName = getProductDisplayName(p, aliases);
-      return (
-        p.toLowerCase().includes(keyword) || displayName.toLowerCase().includes(keyword)
-      );
+      // Use simplified match since display name is on backend
+      return p.toLowerCase().includes(keyword);
     });
 
     if (matchedShops.length > 0 || matchedProducts.length > 0) {
@@ -597,30 +448,42 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
     if (!keyword) return 0;
     let count = 0;
     count += allShops.filter((s) => s.toLowerCase().includes(keyword)).length;
-    count += allProducts.filter((p) => {
-      const displayName = getProductDisplayName(p, aliases);
-      return p.toLowerCase().includes(keyword) || displayName.toLowerCase().includes(keyword);
-    }).length;
+    count += allProducts.filter((p) => p.toLowerCase().includes(keyword)).length;
     return count;
-  }, [aggregateSearch, allShops, allProducts, aliases]);
+  }, [aggregateSearch, allShops, allProducts]);
 
   const isAggregateSearchActive = debouncedSearch.length > 0;
 
-  // 汇总数据
-  const summary = useMemo(() => {
-    if (!dateRange) return null;
-    return computeFilteredSummary(
-      records,
-      dateRange.start,
-      dateRange.end,
-      selectedProducts,
-      selectedShops
-    );
+  // Fetch filtered summary from backend API
+  useEffect(() => {
+    if (!dateRange || Object.keys(records).length === 0) {
+      setSummary(null);
+      setPrevSummary(null);
+      return;
+    }
+    let cancelled = false;
+    setSummaryLoading(true);
+    (async () => {
+      try {
+        const result = await apiComputeFilteredSummary(records, dateRange.start, dateRange.end, selectedProducts, selectedShops);
+        if (!cancelled) {
+          setSummary(result.summary);
+        }
+      } catch (e) {
+        if (!cancelled) setSummary(null);
+      } finally {
+        if (!cancelled) setSummaryLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [records, dateRange, selectedProducts, selectedShops]);
 
-  // 前一周期汇总
-  const prevSummary = useMemo(() => {
-    if (!dateRange || !selectedDate) return null;
+  // Fetch previous period summary
+  useEffect(() => {
+    if (!dateRange || !selectedDate || Object.keys(records).length === 0) {
+      setPrevSummary(null);
+      return;
+    }
     let prevRange: { start: string; end: string } | null = null;
     switch (timeMode) {
       case 'day': {
@@ -649,16 +512,20 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
         break;
       }
       case 'custom':
-        return null;
+        break;
     }
-    if (!prevRange) return null;
-    return computeFilteredSummary(
-      records,
-      prevRange.start,
-      prevRange.end,
-      selectedProducts,
-      selectedShops
-    );
+    if (!prevRange) { setPrevSummary(null); return; }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const result = await apiComputeFilteredSummary(records, prevRange!.start, prevRange!.end, selectedProducts, selectedShops);
+        if (!cancelled) setPrevSummary(result.summary);
+      } catch (e) {
+        if (!cancelled) setPrevSummary(null);
+      }
+    })();
+    return () => { cancelled = true; };
   }, [records, selectedDate, timeMode, dateRange, selectedProducts, selectedShops]);
 
   const dateLabel = useMemo(() => {
@@ -747,128 +614,37 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
 
   return (
     <div className="space-y-4">
-      {/* ========== 注入全局动画样式 ========== */}
       <style>{`
-        @keyframes fadeInUp {
-          from { opacity: 0; transform: translateY(12px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes scaleIn {
-          from { opacity: 0; transform: scale(0.92); }
-          to { opacity: 1; transform: scale(1); }
-        }
-        @keyframes slideUp {
-          from { opacity: 0; transform: translateY(10px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes pop {
-          0% { transform: scale(1); }
-          50% { transform: scale(1.15); }
-          100% { transform: scale(1); }
-        }
-        @keyframes checkDraw {
-          from { stroke-dashoffset: 20; }
-          to { stroke-dashoffset: 0; }
-        }
-        @keyframes ripple {
-          to { transform: scale(4); opacity: 0; }
-        }
-        @keyframes glowPulse {
-          0% { box-shadow: 0 0 0 0 rgba(59,130,246,0.3); }
-          100% { box-shadow: 0 0 0 6px rgba(59,130,246,0); }
-        }
-        @keyframes bounceSlow {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-4px); }
-        }
-        @keyframes shimmer {
-          0% { background-position: -200% 0; }
-          100% { background-position: 200% 0; }
-        }
-        @keyframes numberPop {
-          0% { transform: scale(1); }
-          50% { transform: scale(1.08); color: var(--accent); }
-          100% { transform: scale(1); }
-        }
-        @keyframes borderGlow {
-          0% { border-color: rgba(59,130,246,0.2); }
-          50% { border-color: rgba(59,130,246,0.5); }
-          100% { border-color: rgba(59,130,246,0.2); }
-        }
-        .animate-fade-in-up {
-          animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .animate-scale-in {
-          animation: scaleIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .animate-slide-up {
-          animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-        }
-        .animate-pop {
-          animation: pop 0.3s ease-out;
-        }
-        .animate-check {
-          stroke-dasharray: 20;
-          stroke-dashoffset: 20;
-          animation: checkDraw 0.3s ease forwards 0.1s;
-        }
-        .animate-bounce-slow {
-          animation: bounceSlow 2s infinite ease-in-out;
-        }
-        .animate-shimmer {
-          background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
-          background-size: 200% 100%;
-          animation: shimmer 1.5s infinite;
-        }
-        .animate-glow-pulse:focus {
-          animation: glowPulse 1.2s ease-out;
-        }
-        .animate-number-pop {
-          animation: numberPop 0.4s ease-out;
-        }
-        .animate-border-glow {
-          animation: borderGlow 2s infinite;
-        }
-        .ripple-btn {
-          position: relative;
-          overflow: hidden;
-        }
-        .ripple-btn::after {
-          content: '';
-          position: absolute;
-          top: 50%;
-          left: 50%;
-          width: 10px;
-          height: 10px;
-          background: rgba(255,255,255,0.4);
-          opacity: 0;
-          border-radius: 50%;
-          transform: translate(-50%, -50%) scale(1);
-          pointer-events: none;
-        }
-        .ripple-btn:active::after {
-          animation: ripple 0.5s ease-out;
-        }
-        .card-hover-effect {
-          transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
-        }
-        .card-hover-effect:hover {
-          transform: translateY(-3px);
-          box-shadow: 0 12px 24px -8px rgba(0,0,0,0.12);
-        }
-        .bg-gradient-card {
-          background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
-        }
-        .dark .bg-gradient-card {
-          background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-        }
-        .stat-icon-glow {
-          transition: all 0.3s ease;
-        }
-        .card-hover-effect:hover .stat-icon-glow {
-          transform: scale(1.1);
-          box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.3);
-        }
+        @keyframes fadeInUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.92); } to { opacity: 1; transform: scale(1); } }
+        @keyframes slideUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pop { 0% { transform: scale(1); } 50% { transform: scale(1.15); } 100% { transform: scale(1); } }
+        @keyframes checkDraw { from { stroke-dashoffset: 20; } to { stroke-dashoffset: 0; } }
+        @keyframes ripple { to { transform: scale(4); opacity: 0; } }
+        @keyframes glowPulse { 0% { box-shadow: 0 0 0 0 rgba(59,130,246,0.3); } 100% { box-shadow: 0 0 0 6px rgba(59,130,246,0); } }
+        @keyframes bounceSlow { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+        @keyframes shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+        @keyframes numberPop { 0% { transform: scale(1); } 50% { transform: scale(1.08); color: var(--accent); } 100% { transform: scale(1); } }
+        @keyframes borderGlow { 0% { border-color: rgba(59,130,246,0.2); } 50% { border-color: rgba(59,130,246,0.5); } 100% { border-color: rgba(59,130,246,0.2); } }
+        .animate-fade-in-up { animation: fadeInUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-scale-in { animation: scaleIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .animate-pop { animation: pop 0.3s ease-out; }
+        .animate-check { stroke-dasharray: 20; stroke-dashoffset: 20; animation: checkDraw 0.3s ease forwards 0.1s; }
+        .animate-bounce-slow { animation: bounceSlow 2s infinite ease-in-out; }
+        .animate-shimmer { background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%); background-size: 200% 100%; animation: shimmer 1.5s infinite; }
+        .animate-glow-pulse:focus { animation: glowPulse 1.2s ease-out; }
+        .animate-number-pop { animation: numberPop 0.4s ease-out; }
+        .animate-border-glow { animation: borderGlow 2s infinite; }
+        .ripple-btn { position: relative; overflow: hidden; }
+        .ripple-btn::after { content: ''; position: absolute; top: 50%; left: 50%; width: 10px; height: 10px; background: rgba(255,255,255,0.4); opacity: 0; border-radius: 50%; transform: translate(-50%, -50%) scale(1); pointer-events: none; }
+        .ripple-btn:active::after { animation: ripple 0.5s ease-out; }
+        .card-hover-effect { transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1); }
+        .card-hover-effect:hover { transform: translateY(-3px); box-shadow: 0 12px 24px -8px rgba(0,0,0,0.12); }
+        .bg-gradient-card { background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%); }
+        .dark .bg-gradient-card { background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); }
+        .stat-icon-glow { transition: all 0.3s ease; }
+        .card-hover-effect:hover .stat-icon-glow { transform: scale(1.1); box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.3); }
       `}</style>
 
       {/* 顶部固定筛选区 */}
@@ -1008,8 +784,14 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
         </Card>
       </div>
 
-      {/* 指标卡片（核心优化区域） */}
-      {!summary ? (
+      {/* 指标卡片 */}
+      {summaryLoading && !summary ? (
+        <Card className="animate-fade-in-up">
+          <CardContent className="flex items-center justify-center py-16 text-muted-foreground">
+            <p className="text-sm">计算中...</p>
+          </CardContent>
+        </Card>
+      ) : !summary ? (
         <Card className="animate-fade-in-up">
           <CardContent className="flex items-center justify-center py-16 text-muted-foreground">
             <p className="text-sm">当前筛选条件下暂无数据</p>
@@ -1020,40 +802,26 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
             {cards.map((card, idx) => {
               const Icon = card.icon;
-
-              // 通用卡片样式增强
               const baseCardClass = `
                 overflow-hidden relative card-hover-effect bg-gradient-card
                 border border-opacity-50 rounded-xl
                 transition-all duration-300
                 group
               `;
-
               const iconContainerClass = `
                 p-2 rounded-xl stat-icon-glow
                 transition-all duration-300
                 group-hover:scale-110 group-hover:shadow-md
               `;
-
               const valueClass = `
                 text-3xl font-black tabular-nums
                 animate-number-pop
               `;
-
-              // 变化趋势箭头和文字样式
               const trendBaseClass = "flex items-center gap-1 mt-1 animate-fade-in-up";
 
-              // 特殊处理 Top 异常原因卡片
               if (card.isTopReason) {
                 return (
-                  <Card
-                    key={card.label}
-                    className={baseCardClass}
-                    style={{
-                      borderLeft: `4px solid ${card.accentColor}`,
-                      backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)`
-                    }}
-                  >
+                  <Card key={card.label} className={baseCardClass} style={{ borderLeft: `4px solid ${card.accentColor}`, backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)` }}>
                     <CardContent className="pt-5 pb-5">
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-muted-foreground font-medium tracking-wide uppercase">{card.label}</p>
@@ -1063,40 +831,26 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                       </div>
                       {summary.topReasons.length > 0 ? (
                         <div className="mt-3">
-                          <p
-                            className={`${valueClass} truncate`}
-                            style={{ color: card.accentColor }}
-                            title={summary.topReasons[0][0]}
-                          >
+                          <p className={`${valueClass} truncate`} style={{ color: card.accentColor }} title={summary.topReasons[0][0]}>
                             {summary.topReasons[0][0]}
                           </p>
                           <div className="flex items-center gap-2 mt-2">
                             <Badge variant="secondary" className="text-xs font-mono" style={{ backgroundColor: card.iconBg, color: card.accentColor, borderColor: 'transparent' }}>
                               {summary.topReasons[0][1]} 单
                             </Badge>
-
                           </div>
                         </div>
                       ) : (
                         <p className="text-sm text-muted-foreground mt-2">无异常</p>
                       )}
                     </CardContent>
-                    {/* 装饰性微光 */}
                     <div className="absolute -bottom-4 -right-4 w-16 h-16 rounded-full opacity-10 blur-xl" style={{ backgroundColor: card.accentColor }} />
                   </Card>
                 );
               }
 
-              // 普通数值卡片
               return (
-                <Card
-                  key={card.label}
-                  className={baseCardClass}
-                  style={{
-                    borderLeft: `4px solid ${card.accentColor}`,
-                    backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)`
-                  }}
-                >
+                <Card key={card.label} className={baseCardClass} style={{ borderLeft: `4px solid ${card.accentColor}`, backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)` }}>
                   <CardContent className="pt-5 pb-5">
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-muted-foreground font-medium tracking-wide uppercase">{card.label}</p>
@@ -1105,32 +859,15 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                       </div>
                     </div>
                     <div className="mt-3">
-                      <p
-                        className={valueClass}
-                        style={{ color: card.accentColor }}
-                      >
-                        {card.value}
-                      </p>
+                      <p className={valueClass} style={{ color: card.accentColor }}>{card.value}</p>
                       {card.change !== null && (
                         <div className={trendBaseClass}>
-                          {card.isRedFlag ? (
-                            card.changeUp ? (
-                              <TrendingUp className="h-3.5 w-3.5 text-destructive" />
-                            ) : (
-                              <TrendingDown className="h-3.5 w-3.5 text-emerald-500" />
-                            )
-                          ) : card.changeUp ? (
+                          {(card.isRedFlag ? card.changeUp : card.changeUp) ? (
                             <TrendingUp className="h-3.5 w-3.5 text-destructive" />
                           ) : (
                             <TrendingDown className="h-3.5 w-3.5 text-emerald-500" />
                           )}
-                          <span
-                            className={`text-xs font-semibold tabular-nums ${
-                              (card.isRedFlag ? card.changeUp : card.changeUp)
-                                ? 'text-destructive'
-                                : 'text-emerald-500'
-                            }`}
-                          >
+                          <span className={`text-xs font-semibold tabular-nums ${(card.isRedFlag ? card.changeUp : card.changeUp) ? 'text-destructive' : 'text-emerald-500'}`}>
                             {card.changePercent !== undefined
                               ? `${card.changeUp ? '+' : ''}${card.changePercent}%`
                               : `${card.changeUp ? '+' : ''}${card.change}`}
@@ -1138,7 +875,6 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                         </div>
                       )}
                     </div>
-                    {/* 装饰性微光 */}
                     <div className="absolute -bottom-4 -right-4 w-16 h-16 rounded-full opacity-10 blur-xl" style={{ backgroundColor: card.accentColor }} />
                   </CardContent>
                 </Card>
@@ -1149,9 +885,9 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
           {/* 产品售后排名图 */}
           {summary.productBreakdown.length > 0 && (
             <GlobalProductColumn
-              products={summary.productBreakdown.map((p) => ({
+              products={summary.productBreakdown.map((p: any) => ({
                 originalName: p.name,
-                name: getProductDisplayName(p.name, aliases),
+                name: aliases[p.name]?.alias || p.name,
                 value: p.total,
               }))}
               dateLabel={dateLabel}

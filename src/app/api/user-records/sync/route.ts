@@ -21,6 +21,114 @@ function buildMap(data: any[], key: string): Map<string, any[]> {
   return map;
 }
 
+/**
+ * 安全删除产品及其所有关联数据（按层级顺序删除）
+ */
+async function safeDeleteProducts(
+  client: any,
+  productIds: string[]
+): Promise<void> {
+  if (!productIds || productIds.length === 0) return;
+
+  // 第一层：收集需要删除的孙表数据 ID
+  const [shopsRes, remarksRes] = await Promise.all([
+    client.from('product_shop_distributions').select('id').in('product_id', productIds),
+    client.from('product_remark_categories').select('id').in('product_id', productIds),
+  ]);
+
+  const shopIds = (shopsRes.data || []).map((s: any) => s.id);
+  const remarkIds = (remarksRes.data || []).map((r: any) => r.id);
+
+  // 第二层：删除孙表（shop 的子表和 remark 的子表）
+  const deleteGrandChildren: Promise<any>[] = [];
+  if (shopIds.length > 0) {
+    deleteGrandChildren.push(
+      client.from('shop_quantity_distributions').delete().in('shop_id', shopIds),
+      client.from('shop_remark_categories').delete().in('shop_id', shopIds),
+    );
+  }
+  if (remarkIds.length > 0) {
+    deleteGrandChildren.push(
+      client.from('remark_other_details').delete().in('remark_category_id', remarkIds),
+    );
+  }
+  if (deleteGrandChildren.length > 0) {
+    await Promise.all(deleteGrandChildren);
+  }
+
+  // 第三层：删除直接子表
+  await Promise.all([
+    client.from('product_flags').delete().in('product_id', productIds),
+    client.from('product_quantity_distributions').delete().in('product_id', productIds),
+    client.from('product_remark_categories').delete().in('product_id', productIds),
+    client.from('product_province_distributions').delete().in('product_id', productIds),
+    client.from('product_shop_distributions').delete().in('product_id', productIds),
+  ]);
+
+  // 第四层：删除产品主表
+  await client.from('record_products').delete().in('id', productIds);
+}
+
+/**
+ * 安全删除用户记录及其所有关联数据
+ */
+async function safeDeleteRecords(
+  client: any,
+  userId: string,
+  excludeDates: string[]
+): Promise<void> {
+  if (excludeDates.length === 0) {
+    // 删除所有记录
+    const { data: allRecords } = await client
+      .from('user_records')
+      .select('id')
+      .eq('owner_id', userId);
+
+    const recordIds = (allRecords || []).map((r: any) => r.id);
+
+    if (recordIds.length > 0) {
+      // 收集所有产品 ID
+      const { data: allProducts } = await client
+        .from('record_products')
+        .select('id')
+        .in('record_id', recordIds);
+
+      const productIds = (allProducts || []).map((p: any) => p.id);
+
+      // 删除所有产品及其子数据
+      await safeDeleteProducts(client, productIds);
+
+      // 删除记录
+      await client.from('user_records').delete().eq('owner_id', userId);
+    }
+  } else {
+    // 查找需要删除的记录
+    const { data: recordsToDelete } = await client
+      .from('user_records')
+      .select('id')
+      .eq('owner_id', userId)
+      .not('record_date', 'in', excludeDates);
+
+    const recordIdsToDelete = (recordsToDelete || []).map((r: any) => r.id);
+
+    if (recordIdsToDelete.length > 0) {
+      // 收集所有产品 ID
+      const { data: productsToDelete } = await client
+        .from('record_products')
+        .select('id')
+        .in('record_id', recordIdsToDelete);
+
+      const productIds = (productsToDelete || []).map((p: any) => p.id);
+
+      // 删除所有产品及其子数据
+      await safeDeleteProducts(client, productIds);
+
+      // 删除记录
+      await client.from('user_records').delete().in('id', recordIdsToDelete);
+    }
+  }
+}
+
 function rowsToProductData(
   products: any[],
   flagsMap: Map<string, any[]>,
@@ -179,21 +287,13 @@ export async function POST(req: NextRequest) {
 
       const newProductNames = new Set(Object.keys(products));
 
-      // 3. 删除不再需要的产品
+      // 3. 删除不再需要的产品（使用安全删除函数）
       const productsToDelete = Array.from(nameToIdMap.entries())
         .filter(([name]) => !newProductNames.has(name))
         .map(([, id]) => id);
 
       if (productsToDelete.length > 0) {
-        // 清理子表
-        await Promise.all([
-          client.from('product_flags').delete().in('product_id', productsToDelete),
-          client.from('product_quantity_distributions').delete().in('product_id', productsToDelete),
-          client.from('product_remark_categories').delete().in('product_id', productsToDelete),
-          client.from('product_province_distributions').delete().in('product_id', productsToDelete),
-          client.from('product_shop_distributions').delete().in('product_id', productsToDelete),
-        ]);
-        await client.from('record_products').delete().in('id', productsToDelete);
+        await safeDeleteProducts(client, productsToDelete);
       }
 
       // 4. 更新已存在产品的 total
@@ -238,16 +338,10 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 7. 清理这些产品的所有子表数据
+      // 7. 清理这些产品的所有子表数据（使用安全删除函数）
       const allTargetProductIds = allProductItems.map(p => p.id);
       if (allTargetProductIds.length > 0) {
-        await Promise.all([
-          client.from('product_flags').delete().in('product_id', allTargetProductIds),
-          client.from('product_quantity_distributions').delete().in('product_id', allTargetProductIds),
-          client.from('product_remark_categories').delete().in('product_id', allTargetProductIds),
-          client.from('product_province_distributions').delete().in('product_id', allTargetProductIds),
-          client.from('product_shop_distributions').delete().in('product_id', allTargetProductIds),
-        ]);
+        await safeDeleteProducts(client, allTargetProductIds);
       }
 
       // 8. 收集所有待插入数据
@@ -414,18 +508,7 @@ export async function POST(req: NextRequest) {
 
     // ---------- 删除云端不再存在的日期记录 ----------
     const allLocalDates = dateEntries.map(([date]) => date);
-    if (allLocalDates.length > 0) {
-      await client
-        .from('user_records')
-        .delete()
-        .eq('owner_id', user.id)
-        .not('record_date', 'in', allLocalDates);
-    } else {
-      await client
-        .from('user_records')
-        .delete()
-        .eq('owner_id', user.id);
-    }
+    await safeDeleteRecords(client, user.id, allLocalDates);
 
     return NextResponse.json({ success: true, synced: dateEntries.length });
   } catch (err) {

@@ -14,7 +14,8 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertCircle, Upload, FileJson } from 'lucide-react';
-import { parseDirtyJson, validateImportData, addDateRecord } from '@/lib/store';
+import { parseDirtyJson, validateImportData } from '@/lib/compute-service';
+import { addDateRecord } from '@/lib/records-service';
 import type { AllRecords, ProductData } from '@/lib/types';
 
 interface DataImportDialogProps {
@@ -28,29 +29,47 @@ export function DataImportDialog({ open, onOpenChange, onImported }: DataImportD
   const [jsonText, setJsonText] = useState('');
   const [error, setError] = useState('');
   const [importMode, setImportMode] = useState<'paste' | 'file'>('paste');
+  const [importing, setImporting] = useState(false);
 
-  const handleImport = useCallback(() => {
+  const handleImport = useCallback(async () => {
     setError('');
+    setImporting(true);
     try {
       if (!jsonText.trim()) {
         setError('请输入 JSON 数据');
+        setImporting(false);
         return;
       }
       if (!date) {
         setError('请选择日期');
+        setImporting(false);
         return;
       }
-      const parsed = parseDirtyJson(jsonText);
-      if (!validateImportData(parsed)) {
+
+      // Delegate parsing to backend
+      const parseResult = await parseDirtyJson(jsonText);
+      if (!parseResult.success) {
+        setError('JSON 解析失败，请检查格式是否正确');
+        setImporting(false);
+        return;
+      }
+
+      // Delegate validation to backend
+      const isValid = await validateImportData(parseResult.result);
+      if (!isValid) {
         setError('数据结构不匹配：未找到包含 total 字段的有效商品数据');
+        setImporting(false);
         return;
       }
-      const records = addDateRecord(date, parsed as Record<string, ProductData>);
+
+      const records = addDateRecord(date, parseResult.result as Record<string, ProductData>);
       setJsonText('');
       onImported(records);
       onOpenChange(false);
     } catch (err) {
-      setError('JSON 解析失败，请检查格式是否正确');
+      setError('导入失败: ' + (err instanceof Error ? err.message : '未知错误'));
+    } finally {
+      setImporting(false);
     }
   }, [jsonText, date, onImported, onOpenChange]);
 
@@ -155,8 +174,8 @@ export function DataImportDialog({ open, onOpenChange, onImported }: DataImportD
           <Button variant="outline" onClick={() => onOpenChange(false)}>
             取消
           </Button>
-          <Button onClick={handleImport} disabled={!jsonText.trim() || !date}>
-            确认导入
+          <Button onClick={handleImport} disabled={!jsonText.trim() || !date || importing}>
+            {importing ? '导入中...' : '确认导入'}
           </Button>
         </DialogFooter>
       </DialogContent>
