@@ -26,7 +26,6 @@ export {
   getFlags,
   getFlagCount,
   getRedFlagReasons,
-  getRemarkByFlag,
   getRegionDistribution,
   getShopDistribution,
   validateImportData,
