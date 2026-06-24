@@ -22,7 +22,49 @@ function buildMap(data: any[], key: string): Map<string, any[]> {
 }
 
 /**
- * 安全删除产品及其所有关联数据（按层级顺序删除）
+ * 安全删除产品的所有关联子数据（不删除产品主表）
+ */
+async function safeDeleteProductSubData(
+  client: any,
+  productIds: string[]
+): Promise<void> {
+  if (!productIds || productIds.length === 0) return;
+
+  const [shopsRes, remarksRes] = await Promise.all([
+    client.from('product_shop_distributions').select('id').in('product_id', productIds),
+    client.from('product_remark_categories').select('id').in('product_id', productIds),
+  ]);
+
+  const shopIds = (shopsRes.data || []).map((s: any) => s.id);
+  const remarkIds = (remarksRes.data || []).map((r: any) => r.id);
+
+  const deleteGrandChildren: Promise<any>[] = [];
+  if (shopIds.length > 0) {
+    deleteGrandChildren.push(
+      client.from('shop_quantity_distributions').delete().in('shop_id', shopIds),
+      client.from('shop_remark_categories').delete().in('shop_id', shopIds),
+    );
+  }
+  if (remarkIds.length > 0) {
+    deleteGrandChildren.push(
+      client.from('remark_other_details').delete().in('remark_category_id', remarkIds),
+    );
+  }
+  if (deleteGrandChildren.length > 0) {
+    await Promise.all(deleteGrandChildren);
+  }
+
+  await Promise.all([
+    client.from('product_flags').delete().in('product_id', productIds),
+    client.from('product_quantity_distributions').delete().in('product_id', productIds),
+    client.from('product_remark_categories').delete().in('product_id', productIds),
+    client.from('product_province_distributions').delete().in('product_id', productIds),
+    client.from('product_shop_distributions').delete().in('product_id', productIds),
+  ]);
+}
+
+/**
+ * 安全删除产品及其所有关联数据（按层级顺序删除，含主表）
  */
 async function safeDeleteProducts(
   client: any,
@@ -341,7 +383,7 @@ export async function POST(req: NextRequest) {
       // 7. 清理这些产品的所有子表数据（使用安全删除函数）
       const allTargetProductIds = allProductItems.map(p => p.id);
       if (allTargetProductIds.length > 0) {
-        await safeDeleteProducts(client, allTargetProductIds);
+        await safeDeleteProductSubData(client, allTargetProductIds);
       }
 
       // 8. 收集所有待插入数据
