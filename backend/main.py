@@ -4,7 +4,7 @@ FastAPI application entry point.
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import records, aliases, excel_import, compute
+from routers import records, aliases, excel_import, compute, chat
 
 load_dotenv()
 app = FastAPI(
@@ -25,6 +25,7 @@ app.include_router(records.router)
 app.include_router(aliases.router)
 app.include_router(excel_import.router)
 app.include_router(compute.router)
+app.include_router(chat.router)
 
 
 @app.get('/api/health')

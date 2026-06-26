@@ -576,14 +576,18 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
                 <div className="flex items-center gap-1.5 mb-1.5">
                   <span className="text-[11px] text-muted-foreground">售后总数</span>
                   <select value={flagType} onChange={e => setFlagType(e.target.value)}
-                    className="text-[10px] px-1.5 py-0 h-4 rounded-sm font-medium border border-red-300 text-red-600 bg-red-50 cursor-pointer outline-none"
-                    style={flagType === '总数' ? { borderColor: '#94a3b8', color: '#475569', backgroundColor: '#f8fafc' } : flagType === '绿色旗子' ? { borderColor: '#86efac', color: '#16a34a', backgroundColor: '#f0fdf4' } : {}}>
+                    className="text-[10px] px-1.5 py-0 h-4 rounded-sm font-medium cursor-pointer outline-none"
+                    style={flagType === '总数' ? { borderColor: '#94a3b8', color: '#475569', backgroundColor: '#f8fafc' }
+                      : flagType === '红色旗子' ? { borderColor: '#fca5a5', color: '#dc2626', backgroundColor: '#fef2f2' }
+                      : flagType === '绿色旗子' ? { borderColor: '#86efac', color: '#16a34a', backgroundColor: '#f0fdf4' }
+                      : { borderColor: '#d1d5db', color: '#6b7280', backgroundColor: '#f9fafb' }}>
                     <option value="红色旗子">红旗</option>
                     <option value="绿色旗子">绿旗</option>
+                    <option value="灰色旗子">灰旗</option>
                     <option value="总数">总数</option>
                   </select>
                 </div>
-                <AnimatedValue value={totalValue} className="text-2xl font-black text-emerald-600 tabular-nums" />
+                <AnimatedValue value={aggregatedData?.total || 0} className="text-2xl font-black text-emerald-600 tabular-nums" />
               </div>
               <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-amber-500/5 p-4 shadow-sm hover:shadow-md transition-all duration-300 animate-fade-in-up animate-delay-3 pulse-on-update">
                 <div className="text-[11px] text-muted-foreground mb-1.5">乡镇/村</div>

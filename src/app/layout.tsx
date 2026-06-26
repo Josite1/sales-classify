@@ -4,8 +4,8 @@ import { SupabaseConfigProvider } from '@/lib/supabase-config-inject';
 import './globals.css';
 
 export const metadata: Metadata = {
-  title: '售后数据看板',
-  description: '售后数据分类与分析系统',
+  title: 'SalesBoard — 售后数据分析看板',
+  description: '智能售后数据分类、趋势分析与可视化看板。支持 Excel/JSON 导入、多维度分析、云端同步与分享。',
 };
 
 export default function RootLayout({
