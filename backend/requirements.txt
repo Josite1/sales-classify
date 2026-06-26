@@ -8,3 +8,5 @@ python-jose
 pandas
 openpyxl
 numpy
+zai-sdk
+sniffio
