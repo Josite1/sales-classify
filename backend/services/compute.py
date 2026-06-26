@@ -875,6 +875,7 @@ def compute_region_trend_data(
     end_date: str,
     top_regions: List[str],
     target_products: List[str],
+    flag_type: str = '红色旗子',
 ) -> List[Dict]:
     """Compute region trend data (region-distribution.tsx trend view)."""
     dates = [d for d in sorted(records.keys()) if start_date <= d <= end_date]
@@ -891,7 +892,7 @@ def compute_region_trend_data(
             pd = record.get('data', {}).get(pname) if record else None
             if not pd:
                 continue
-            rg = get_region_distribution(pd)
+            rg = get_region_distribution_by_flag(pd, flag_type)
             for region, item in rg.items():
                 region_count[region] = region_count.get(region, 0) + item['count']
 
@@ -981,6 +982,7 @@ def compute_shop_trend_data(
     end_date: str,
     top_shops: List[str],
     target_products: List[str],
+    flag_type: str = '红色旗子',
 ) -> List[Dict]:
     """Compute shop trend data (shop-distribution.tsx trend view)."""
     dates = [d for d in sorted(records.keys()) if start_date <= d <= end_date]
@@ -997,7 +999,7 @@ def compute_shop_trend_data(
             pd = record.get('data', {}).get(pname) if record else None
             if not pd:
                 continue
-            sh = get_shop_distribution(pd)
+            sh = get_shop_distribution_by_flag(pd, flag_type)
             for shop, count in sh.items():
                 shop_count[shop] = shop_count.get(shop, 0) + count
 

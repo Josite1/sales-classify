@@ -1,4 +1,4 @@
-﻿'''
+'''
 Product aliases API routes.
 '''
 from fastapi import APIRouter

@@ -11,9 +11,9 @@ const BASE_ALIAS_KEY = 'after-sales-aliases';
 /** Current active user ID (for localStorage isolation) */
 let activeUserId: string | null = null;
 
-/** Set the active user; clears old user data on switch */
+/** Set the active user; clears old user data only on explicit user switch (not logout) */
 export function setActiveUser(userId: string | null): void {
-  if (activeUserId && activeUserId !== userId) {
+  if (activeUserId && userId && activeUserId !== userId) {
     clearUserData(activeUserId);
   }
   activeUserId = userId;

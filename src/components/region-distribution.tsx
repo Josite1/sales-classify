@@ -283,12 +283,12 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
     let cancelled = false;
     (async () => {
       try {
-        const result = await apiComputeRegionTrend(records, dateRange.start, dateRange.end, topRegions, targetProducts);
+        const result = await apiComputeRegionTrend(records, dateRange.start, dateRange.end, topRegions, targetProducts, flagType);
         if (!cancelled) setTrendData(result.trendData);
       } catch (e) { if (!cancelled) setTrendData([]); }
     })();
     return () => { cancelled = true; };
-  }, [aggregatedData, selectedRegions, filteredDates, records, dateRange, targetProducts]);
+  }, [aggregatedData, selectedRegions, filteredDates, records, dateRange, targetProducts, flagType]);
 
   const displayRegion = aggregatedData ? aggregatedData.region : {};
   const chartData = useMemo(() =>

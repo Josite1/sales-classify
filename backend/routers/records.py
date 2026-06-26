@@ -1,4 +1,4 @@
-﻿'''
+'''
 Records CRUD API routes.
 '''
 from fastapi import APIRouter, HTTPException

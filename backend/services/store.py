@@ -1,4 +1,4 @@
-﻿'''
+'''
 Core business logic: computations, aggregations, merges.
 '''
 from typing import Dict, List
@@ -224,28 +224,33 @@ def merge_records(local: Dict, cloud: Dict) -> Dict:
     """Merge local and cloud records.
     Cloud is the source of truth for existence: dates present only in local
     (with importedAt older than the latest cloud timestamp) are treated as
-    deleted from another device and removed."""
+    deleted from another device and removed. When cloud is empty, all local
+    records are preserved."""
     merged = dict(local)
 
-    # Latest cloud timestamp — used to determine if local-only dates are stale
+    # Latest cloud timestamp — used to determine if local-only dates are stale.
+    # Coerce None to 0 to handle SQL NULL values from Supabase.
     latest_cloud_time = max(
-        (r.get('importedAt', 0) for r in cloud.values()),
+        (int(r.get('importedAt') or 0) for r in cloud.values()),
         default=0
     )
 
     for date_key, cloud_record in cloud.items():
+        cloud_imported = int(cloud_record.get('importedAt') or 0)
         if date_key not in merged:
             merged[date_key] = cloud_record
-        elif cloud_record.get('importedAt', 0) > merged[date_key].get('importedAt', 0):
+        elif cloud_imported > int(merged[date_key].get('importedAt') or 0):
             merged[date_key] = cloud_record
 
     # Remove local-only dates that are older than the latest cloud activity.
     # These were deleted from another device and should be cleaned up.
-    # Dates with importedAt > latest_cloud_time are new local data, keep them.
-    for date_key in list(merged.keys()):
-        if date_key not in cloud:
-            local_time = merged[date_key].get('importedAt', 0)
-            if local_time < latest_cloud_time or latest_cloud_time == 0:
-                del merged[date_key]
+    # Only prune when cloud has actual data (latest_cloud_time > 0);
+    # an empty cloud must not delete local records.
+    if latest_cloud_time > 0:
+        for date_key in list(merged.keys()):
+            if date_key not in cloud:
+                local_time = int(merged[date_key].get('importedAt') or 0)
+                if local_time < latest_cloud_time:
+                    del merged[date_key]
 
     return merged

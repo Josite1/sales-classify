@@ -147,9 +147,9 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
       let tops: string[]; if (selectedFilterShops.length > 0) tops = selectedFilterShops.map(n => ({ name: n, count: aggregatedData.shop[n] || 0 })).sort((a, b) => b.count - a.count).map(s => s.name);
       else tops = Object.entries(aggregatedData.shop).sort((a, b) => b[1] - a[1]).slice(0, 8).map(e => e[0]);
       const tp = searchKeyword.trim() ? filteredProductNames : shopFilteredProducts;
-      if (tp.length > 0) { let c = false; (async () => { const r = await apiComputeShopTrend(records, dateRange.start, dateRange.end, tops, tp); if (!c) setTrendData(r.trendData); })(); return () => { c = true; }; }
+      if (tp.length > 0) { let c = false; (async () => { const r = await apiComputeShopTrend(records, dateRange.start, dateRange.end, tops, tp, flagType); if (!c) setTrendData(r.trendData); })(); return () => { c = true; }; }
     }
-  }, [aggregatedData, selectedFilterShops, filteredDates, records, dateRange, searchKeyword, filteredProductNames, shopFilteredProducts, targetProducts]);
+  }, [aggregatedData, selectedFilterShops, filteredDates, records, dateRange, searchKeyword, filteredProductNames, shopFilteredProducts, targetProducts, flagType]);
 
   const displayShop = aggregatedData ? aggregatedData.shop : {};
   const chartData = useMemo(() => Object.entries(displayShop).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value), [displayShop]);

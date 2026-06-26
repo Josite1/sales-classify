@@ -226,6 +226,7 @@ async def region_trend(payload: Dict):
         end_date=payload.get('endDate', ''),
         top_regions=payload.get('topRegions', []),
         target_products=payload.get('targetProducts', []),
+        flag_type=payload.get('flagType', '红色旗子'),
     )
     return {'trendData': result}
 
@@ -252,6 +253,7 @@ async def shop_trend(payload: Dict):
         end_date=payload.get('endDate', ''),
         top_shops=payload.get('topShops', []),
         target_products=payload.get('targetProducts', []),
+        flag_type=payload.get('flagType', '红色旗子'),
     )
     return {'trendData': result}
 

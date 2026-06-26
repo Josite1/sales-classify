@@ -1,4 +1,4 @@
-﻿'''
+'''
 Pydantic data models matching TypeScript types.
 '''
 from typing import Optional, Union, Dict, List

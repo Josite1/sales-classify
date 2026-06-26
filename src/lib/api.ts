@@ -299,10 +299,11 @@ export async function apiComputeRegionTrend(
   endDate: string,
   topRegions: string[],
   targetProducts: string[],
+  flagType: string = '红色旗子',
 ): Promise<{ trendData: { date: string; label: string; [region: string]: string | number }[] }> {
   return request('/api/compute/region-trend', {
     method: 'POST',
-    body: JSON.stringify({ records, startDate, endDate, topRegions, targetProducts }),
+    body: JSON.stringify({ records, startDate, endDate, topRegions, targetProducts, flagType }),
   });
 }
 
@@ -327,10 +328,11 @@ export async function apiComputeShopTrend(
   endDate: string,
   topShops: string[],
   targetProducts: string[],
+  flagType: string = '红色旗子',
 ): Promise<{ trendData: { date: string; label: string; [shop: string]: string | number }[] }> {
   return request('/api/compute/shop-trend', {
     method: 'POST',
-    body: JSON.stringify({ records, startDate, endDate, topShops, targetProducts }),
+    body: JSON.stringify({ records, startDate, endDate, topShops, targetProducts, flagType }),
   });
 }
 

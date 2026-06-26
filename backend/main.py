@@ -1,4 +1,4 @@
-﻿'''
+'''
 FastAPI application entry point.
 '''
 from dotenv import load_dotenv
