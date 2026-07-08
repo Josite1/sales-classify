@@ -50,11 +50,11 @@ export async function mergeRecords(local: AllRecords, cloud: AllRecords): Promis
 
 // ==================== Cloud Sync ====================
 
-export async function syncToCloud(records: AllRecords, token: string): Promise<{ synced: number }> {
+export async function syncToCloud(records: AllRecords, token: string, fullSync = false): Promise<{ synced: number }> {
   const res = await safeFetch('/api/user-records/sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-session': token },
-    body: JSON.stringify({ records }),
+    body: JSON.stringify({ records, fullSync }),
   });
   const data = await res.json();
   if (!data.success) throw new Error(data.error || 'Sync failed');
@@ -69,4 +69,18 @@ export async function fetchFromCloud(token: string): Promise<AllRecords> {
   const data = await res.json();
   if (!data.success) throw new Error(data.error || 'Fetch failed');
   return data.records as AllRecords;
+}
+
+/**
+ * 轻量检查云端记录是否有变更。
+ * 仅返回日期和更新时间戳，无需加载全部子表数据（~500ms vs ~10s）。
+ */
+export async function fetchFromCloudTimestamps(token: string): Promise<Record<string, number>> {
+  const res = await safeFetch('/api/user-records/sync/timestamps', {
+    method: 'GET',
+    headers: { 'x-session': token },
+  });
+  const data = await res.json();
+  if (!data.success) throw new Error(data.error || 'Fetch timestamps failed');
+  return data.timestamps as Record<string, number>;
 }

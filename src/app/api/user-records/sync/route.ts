@@ -11,6 +11,58 @@ import type {
 } from '@/lib/types';
 
 // ==================== 辅助函数 ====================
+
+/**
+ * 分批获取 Supabase `.in()` 查询的全部结果，突破默认 1000 行限制。
+ *
+ * 策略：将 ID 列表拆成小批次并行查询（受并发数限制），合并全部结果。
+ * 不使用 .order().limit() 游标分页，因为 .in() + .order() + .limit()
+ * 组合在 PostgREST 中会产生超长 URL 导致 "Bad Request"。
+ */
+async function fetchAllIn(
+  client: any,
+  tableName: string,
+  column: string,
+  ids: string[],
+  concurrency: number = 10,
+): Promise<any[]> {
+  // 去重 + 过滤空值，避免 Supabase .in() 收到无效参数
+  const clean = [...new Set(ids)].filter(Boolean);
+  if (clean.length === 0) return [];
+
+  const BATCH_SIZE = 50;
+  const allRows: any[] = [];
+  const batches: string[][] = [];
+
+  for (let i = 0; i < clean.length; i += BATCH_SIZE) {
+    batches.push(clean.slice(i, i + BATCH_SIZE));
+  }
+
+  // 受控并发执行：每次最多 concurrency 个批次同时请求
+  for (let i = 0; i < batches.length; i += concurrency) {
+    const chunk = batches.slice(i, i + concurrency);
+    const results = await Promise.all(
+      chunk.map(async (batch, idx) => {
+        const { data, error } = await client
+          .from(tableName)
+          .select('*')
+          .in(column, batch);
+        if (error) {
+          console.error(`[fetchAll] ${tableName} 批次 #${i + idx} 失败:`, error.message);
+          throw new Error(`Fetch ${tableName} failed: ${error.message}`);
+        }
+        return data || [];
+      })
+    );
+    for (const data of results) {
+      if (data.length > 0) allRows.push(...data);
+    }
+  }
+
+  console.log(`[fetchAll] ${tableName}: ${clean.length} IDs → ${allRows.length} rows (${batches.length} batches, concurrency=${concurrency})`);
+  return allRows;
+}
+
 function buildMap(data: any[], key: string): Map<string, any[]> {
   const map = new Map<string, any[]>();
   for (const item of data || []) {
@@ -287,8 +339,9 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { records } = body as {
+    const { records, fullSync } = body as {
       records: Record<string, { date: string; data: Record<string, ProductData>; importedAt: number }>;
+      fullSync?: boolean;
     };
 
     if (!records || typeof records !== 'object') {
@@ -296,8 +349,9 @@ export async function POST(req: NextRequest) {
     }
 
     const dateEntries = Object.entries(records);
+    const incomingDates = new Set(Object.keys(records));
 
-    // 并发处理所有日期
+    // 1. 先写入/更新所有新数据 — 确保数据存在后再删旧数据，避免空窗期
     await Promise.all(dateEntries.map(async ([dateStr, record]) => {
       // 1. 插入或更新 user_records 行
       const { data: upserted, error: upsertError } = await client
@@ -548,9 +602,11 @@ export async function POST(req: NextRequest) {
       }
     }));
 
-    // ---------- 删除云端不再存在的日期记录 ----------
-    const allLocalDates = dateEntries.map(([date]) => date);
-    await safeDeleteRecords(client, user.id, allLocalDates);
+    // ---------- 全量同步：删除云端不再存在的日期记录 ----------
+    if (fullSync) {
+      const allLocalDates = dateEntries.map(([date]) => date);
+      await safeDeleteRecords(client, user.id, allLocalDates);
+    }
 
     return NextResponse.json({ success: true, synced: dateEntries.length });
   } catch (err) {
@@ -577,19 +633,20 @@ export async function GET(req: NextRequest) {
       .eq('owner_id', user.id);
 
     if (recError) return NextResponse.json({ error: recError.message }, { status: 500 });
+    console.log(`[sync:get] user_records: ${(records || []).length} rows`);
     if (!records || records.length === 0) {
       return NextResponse.json({ success: true, records: {} });
     }
 
     const recordIds = records.map(r => r.id);
 
-    // 2. 一次获取所有产品
-    const { data: products } = await client
-      .from('record_products')
-      .select('*')
-      .in('record_id', recordIds);
+    // 2. 一次获取所有产品（分页避免 1000 行截断）
+    const products = await fetchAllIn(
+      client, 'record_products', 'record_id', recordIds,
+    );
 
     const productIds = (products || []).map(p => p.id);
+    console.log(`[sync:get] record_products: ${productIds.length} rows`);
 
     if (productIds.length === 0) {
       const result: Record<string, { date: string; data: Record<string, ProductData>; importedAt: number }> = {};
@@ -599,38 +656,39 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: true, records: result });
     }
 
-    // 3. 一次性获取所有子表数据
+    // 3. 分页获取所有子表数据（突破 Supabase 1000 行默认限制）
     const [
-      { data: flags },
-      { data: qties },
-      { data: remarks },
-      { data: provs },
-      { data: shops },
+      flags,
+      qties,
+      remarks,
+      provs,
+      shops,
     ] = await Promise.all([
-      client.from('product_flags').select('*').in('product_id', productIds),
-      client.from('product_quantity_distributions').select('*').in('product_id', productIds),
-      client.from('product_remark_categories').select('*').in('product_id', productIds),
-      client.from('product_province_distributions').select('*').in('product_id', productIds),
-      client.from('product_shop_distributions').select('*').in('product_id', productIds),
+      fetchAllIn(client, 'product_flags', 'product_id', productIds),
+      fetchAllIn(client, 'product_quantity_distributions', 'product_id', productIds),
+      fetchAllIn(client, 'product_remark_categories', 'product_id', productIds),
+      fetchAllIn(client, 'product_province_distributions', 'product_id', productIds),
+      fetchAllIn(client, 'product_shop_distributions', 'product_id', productIds),
     ]);
 
     const remarkIds = (remarks || []).map((r: any) => r.id);
     const shopIds = (shops || []).map((s: any) => s.id);
 
+    // 二次关联表：受控并发拉取，避免单次请求 ID 过多导致超时/超长 URL
     const [
-      { data: otherDetails },
-      { data: shopQties },
-      { data: shopRemarks },
+      otherDetails,
+      shopQties,
+      shopRemarks,
     ] = await Promise.all([
       remarkIds.length
-        ? client.from('remark_other_details').select('*').in('remark_category_id', remarkIds)
-        : Promise.resolve({ data: [] }),
+        ? fetchAllIn(client, 'remark_other_details', 'remark_category_id', remarkIds, 8)
+        : Promise.resolve([]),
       shopIds.length
-        ? client.from('shop_quantity_distributions').select('*').in('shop_id', shopIds)
-        : Promise.resolve({ data: [] }),
+        ? fetchAllIn(client, 'shop_quantity_distributions', 'shop_id', shopIds, 8)
+        : Promise.resolve([]),
       shopIds.length
-        ? client.from('shop_remark_categories').select('*').in('shop_id', shopIds)
-        : Promise.resolve({ data: [] }),
+        ? fetchAllIn(client, 'shop_remark_categories', 'shop_id', shopIds, 8)
+        : Promise.resolve([]),
     ]);
 
     // 4. 内存分组
@@ -657,6 +715,7 @@ export async function GET(req: NextRequest) {
       };
     }
 
+    console.log(`[sync:get] done: ${Object.keys(result).length} dates`);
     return NextResponse.json({ success: true, records: result });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';

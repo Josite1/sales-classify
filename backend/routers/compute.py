@@ -187,14 +187,20 @@ async def product_analysis(payload: Dict):
         product_name=payload.get('productName', ''),
         selected_shops=payload.get('selectedShops', []),
     )
-    if aggregated is None:
-        raise HTTPException(404, 'No data found for product analysis')
-
     global_total = svc.compute_product_global_total(
         records=payload.get('records', {}),
         start_date=payload.get('startDate', ''),
         end_date=payload.get('endDate', ''),
     )
+
+    if aggregated is None:
+        # 筛选后无数据时返回空结构，保持图表可见（而不是 404 导致图表消失）
+        return {
+            'productData': {},
+            'globalTotal': global_total,
+            'stats': {'total': 0, 'qtyStats': {}, 'singleRatio': '0', 'topQty': '-', 'topQtyVal': 0},
+        }
+
     stats = svc.compute_product_stats(aggregated)
 
     return {
@@ -208,14 +214,19 @@ async def product_analysis(payload: Dict):
 
 @router.post('/region-aggregation')
 async def region_aggregation(payload: Dict):
-    result = svc.compute_region_aggregation(
-        records=payload.get('records', {}),
-        start_date=payload.get('startDate', ''),
-        end_date=payload.get('endDate', ''),
-        target_products=payload.get('targetProducts', []),
-        flag_type=payload.get('flagType', '红色旗子'),
-    )
-    return result or {'region': {}, 'total': 0, 'count': 0}
+    try:
+        result = svc.compute_region_aggregation(
+            records=payload.get('records', {}),
+            start_date=payload.get('startDate', ''),
+            end_date=payload.get('endDate', ''),
+            target_products=payload.get('targetProducts', []),
+            flag_type=payload.get('flagType', '红色旗子'),
+        )
+        return result or {'region': {}, 'total': 0, 'count': 0}
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f'region-aggregation error: {e}')
 
 
 @router.post('/region-trend')

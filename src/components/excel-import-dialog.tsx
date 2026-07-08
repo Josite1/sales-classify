@@ -2,6 +2,8 @@
 
 import { useState, useCallback } from 'react';
 import { safeFetch } from '@/lib/fetch-utils';
+import { fetchFromCloud } from '@/lib/records-service';
+import { getAccessToken } from '@/lib/auth';
 import {
   Dialog,
   DialogContent,
@@ -14,14 +16,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { AlertCircle, Upload, FileSpreadsheet, Loader2, ExternalLink } from 'lucide-react';
-import { addDateRecord } from '@/lib/records-service';;
 import type { AllRecords, ProductData } from '@/lib/types';
 import Link from 'next/link';
 
 interface ExcelImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImported: (records: AllRecords) => void;
+  onImported: (records: AllRecords, newRecordsOnly?: AllRecords) => void;
 }
 
 export function ExcelImportDialog({ open, onOpenChange, onImported }: ExcelImportDialogProps) {
@@ -58,9 +59,14 @@ export function ExcelImportDialog({ open, onOpenChange, onImported }: ExcelImpor
         setError('处理结果不正确');
         return;
       }
-      const records = addDateRecord(date, data.data as Record<string, ProductData>);
+      // 新增日期追加到完整数据，但只同步新日期（增量同步，避免请求体过大）
+      const token = await getAccessToken();
+      const cloudRecords = token ? await fetchFromCloud(token) : {};
+      const newRecord = { date, data: data.data as Record<string, ProductData>, importedAt: Date.now() };
+      const records: AllRecords = { ...cloudRecords, [date]: newRecord };
+      const newRecordsOnly: AllRecords = { [date]: newRecord };
       setSalesFile(null);
-      onImported(records);
+      onImported(records, newRecordsOnly);
       onOpenChange(false);
     } catch (err) {
       setError('Excel处理异常: ' + (err as Error).message);

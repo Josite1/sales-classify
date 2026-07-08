@@ -315,9 +315,16 @@ class ExcelProcessor:
         return result
 
     # ---- load sales data ----
-    def load_sales(self, sales_file: io.BytesIO, sheet_name: str = 'sheet') -> pd.DataFrame:
+    def load_sales(self, sales_file: io.BytesIO, sheet_name: str = None) -> pd.DataFrame:
         '''Load sales data from Excel and run preprocessing.'''
-        self.sales_data = pd.read_excel(sales_file, sheet_name=sheet_name)
+        xls = pd.ExcelFile(sales_file)
+        if sheet_name and sheet_name in xls.sheet_names:
+            self.sales_data = pd.read_excel(sales_file, sheet_name=sheet_name)
+        elif 'sheet' in xls.sheet_names:
+            self.sales_data = pd.read_excel(sales_file, sheet_name='sheet')
+        else:
+            # Fall back to first sheet
+            self.sales_data = pd.read_excel(sales_file, sheet_name=xls.sheet_names[0])
         return self.preprocess()
 
     # ---- full pipeline ----

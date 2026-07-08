@@ -325,7 +325,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
         animationDurationUpdate: 400,
         animationEasing: 'cubicInOut' as const,
         animationEasingUpdate: 'cubicInOut' as const,
-        series: [{ data: animatedMapData }]
+        series: [{ type: 'map', map: 'china', data: animatedMapData }]
       }, false);
       return;
     }
@@ -336,9 +336,9 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
         animation: true, animationDuration: 600, animationEasing: 'cubicInOut' as const, animationDurationUpdate: 400,
         xAxis: { data: chartData.map(d => d.name) },
         series: [
-          { data: chartData.map(d => d.value) },
-          { data: chartData.map(d => d.town_village) },
-          { data: townRatios }
+          { type: 'bar', data: chartData.map(d => d.value) },
+          { type: 'bar', data: chartData.map(d => d.town_village) },
+          { type: 'line', data: townRatios }
         ]
       }, false);
       return;

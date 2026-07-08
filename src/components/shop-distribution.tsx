@@ -174,13 +174,13 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
       if (chartType === 'bar') {
         chartInstanceRef.current?.setOption({
           animation: true, animationDuration: 600, animationEasing: 'cubicInOut' as const,
-          xAxis: { data: names }, series: [{ data: values.map((v, i) => ({ value: v, itemStyle: { color: new echarts.graphic.LinearGradient(0, 1, 0, 0, [{ offset: 0, color: VIVID_COLORS[i % VIVID_COLORS.length] + '88' }, { offset: 1, color: VIVID_COLORS[i % VIVID_COLORS.length] }]), borderRadius: [4, 4, 0, 0] } })) }]
+          xAxis: { data: names }, series: [{ type: 'bar', data: values.map((v, i) => ({ value: v, itemStyle: { color: new echarts.graphic.LinearGradient(0, 1, 0, 0, [{ offset: 0, color: VIVID_COLORS[i % VIVID_COLORS.length] + '88' }, { offset: 1, color: VIVID_COLORS[i % VIVID_COLORS.length] }]), borderRadius: [4, 4, 0, 0] } })) }]
         }, false);
       } else {
         const pcts = values.map(v => total > 0 ? Math.round((v / total) * 100) : 0);
         chartInstanceRef.current?.setOption({
           animation: true, animationDuration: 600, animationEasing: 'cubicInOut' as const,
-          xAxis: { data: names }, series: [{ data: values }, { data: pcts }]
+          xAxis: { data: names }, series: [{ type: 'bar', data: values }, { type: 'line', data: pcts }]
         }, false);
       }
       return;

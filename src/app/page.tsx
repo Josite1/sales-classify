@@ -4,9 +4,9 @@ import { useState, useEffect, useCallback, useRef, startTransition } from 'react
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 // Data persistence
-import { loadAllRecords, saveAllRecords, loadProductAliases, setActiveUser } from '@/lib/storage';
+import { loadProductAliases, setActiveUser, loadCloudCache, saveCloudCache, loadCloudHash, saveCloudHash } from '@/lib/storage';
 // Records management & cloud sync
-import { syncToCloud, fetchFromCloud, mergeRecords } from '@/lib/records-service';
+import { syncToCloud, fetchFromCloud, fetchFromCloudTimestamps } from '@/lib/records-service';
 // API client for backend computation
 import { apiComputeFilteredSummary } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
@@ -246,72 +246,104 @@ export default function Home() {
     return () => el.removeEventListener('scroll', onScroll);
   }, []);
 
-  // 当用户状态变化时，加载用户数据
+  // 当 records 变化时，重新计算顶部统计数字
+  useEffect(() => {
+    const dates = Object.keys(records);
+    if (dates.length === 0) { setTotalOrders(0); setTotalProducts(0); return; }
+    const sorted = dates.sort();
+    (async () => {
+      try {
+        const result = await apiComputeFilteredSummary(
+          records, sorted[0], sorted[sorted.length - 1], [], []
+        );
+        if (result.summary) {
+          setTotalOrders(result.summary.totalOrders);
+          setTotalProducts(result.summary.productBreakdown.length);
+        }
+      } catch {
+        const ps = new Set<string>(); let os = 0;
+        for (const r of Object.values(records)) {
+          for (const [pn, pd] of Object.entries(r.data || {})) {
+            ps.add(pn); os += (pd.total as number) || 0;
+          }
+        }
+        setTotalOrders(os); setTotalProducts(ps.size);
+      }
+    })();
+  }, [records]);
+
+  // 当用户变化时重置并等待云端数据加载
   useEffect(() => {
     if (!mounted) return;
     setRecords({});
     setAliases({});
     setSelectedDate(null);
+    setTotalOrders(0);
+    setTotalProducts(0);
 
     if (user?.id) {
       setActiveUser(user.id);
     }
-
-    const loaded = loadAllRecords();
-    setRecords(loaded);
-    setAliases(loadProductAliases());
-    const dates = Object.keys(loaded).sort().reverse();
-    if (dates.length > 0) {
-      setSelectedDate(dates[0]);
-    }
-
-    if (Object.keys(loaded).length > 0) {
-      const dates_sorted = Object.keys(loaded).sort();
-      const firstDate = dates_sorted[0];
-      const lastDate = dates_sorted[dates_sorted.length - 1];
-      (async () => {
-        try {
-          const result = await apiComputeFilteredSummary(loaded, firstDate, lastDate, [], []);
-          if (result.summary) {
-            setTotalOrders(result.summary.totalOrders);
-            setTotalProducts(result.summary.productBreakdown.length);
-          }
-        } catch (e) {
-          const productSet = new Set<string>();
-          let orderSum = 0;
-          for (const record of Object.values(loaded)) {
-            for (const [pName, pData] of Object.entries(record.data || {})) {
-              productSet.add(pName);
-              orderSum += (pData.total as number) || 0;
-            }
-          }
-          setTotalOrders(orderSum);
-          setTotalProducts(productSet.size);
-        }
-      })();
-    }
+    // 重置 initialSyncDone，让新用户触发云端加载
+    initialSyncDone.current = false;
   }, [mounted, user?.id]);
 
-  // 登录时从云端拉取并合并数据
+  // 登录时从云端拉取数据（优先使用 localStorage 缓存，避免每次刷新 10s 全量拉取）
+  const initialSyncDone = useRef(false);
   useEffect(() => {
-    if (!mounted || !isAuthenticated || authLoading) return;
+    if (!mounted || !isAuthenticated || authLoading || initialSyncDone.current) return;
+    initialSyncDone.current = true;
     let cancelled = false;
     (async () => {
       try {
         const token = await getAccessToken();
-        if (!token || cancelled) return;
+        if (!token || cancelled) { initialSyncDone.current = false; return; }
         setSyncing(true);
-        const cloudRecords = await fetchFromCloud(token);
-        if (cancelled) return;
-        const localRecords = loadAllRecords();
-        const merged = await mergeRecords(localRecords, cloudRecords);
-        saveAllRecords(merged);
-        setRecords(merged);
-        const dates = Object.keys(merged).sort().reverse();
-        if (dates.length > 0) setSelectedDate(dates[0]);
-        if (Object.keys(cloudRecords).length < Object.keys(merged).length) {
-          await syncToCloud(merged, token);
+
+        // 1. 先检查 localStorage 缓存
+        const cached = loadCloudCache();
+        const cachedHash = loadCloudHash();
+        let cloudRecords: AllRecords;
+
+        if (cached && Object.keys(cached).length > 0 && cachedHash) {
+          // 先用缓存快速渲染
+          setRecords(cached);
+          const dates = Object.keys(cached).sort().reverse();
+          if (dates.length > 0) setSelectedDate(dates[0]);
+
+          // 2. 轻量检查云端是否有变更（~200ms）
+          try {
+            const timestamps = await fetchFromCloudTimestamps(token);
+            const cloudHash = JSON.stringify(
+              Object.keys(timestamps).sort().map(k => `${k}:${timestamps[k]}`)
+            );
+            if (cloudHash === cachedHash) {
+              lastCloudHashRef.current = cloudHash;
+              if (!cancelled) setSyncing(false);
+              setAliases(loadProductAliases());
+              return; // 缓存有效，跳过全量拉取
+            }
+          } catch {
+            // 时间戳检查失败，降级到全量拉取
+          }
         }
+
+        // 3. 缓存无效，全量拉取（~10s）
+        cloudRecords = await fetchFromCloud(token);
+        if (cancelled) { initialSyncDone.current = false; return; }
+
+        // 4. 更新缓存
+        saveCloudCache(cloudRecords);
+        const newHash = JSON.stringify(
+          Object.keys(cloudRecords).sort().map(k => `${k}:${cloudRecords[k].importedAt}`)
+        );
+        saveCloudHash(newHash);
+        lastCloudHashRef.current = newHash;
+
+        setRecords(cloudRecords);
+        setAliases(loadProductAliases());
+        const dates = Object.keys(cloudRecords).sort().reverse();
+        if (dates.length > 0) setSelectedDate(dates[0]);
       } catch (e) {
         setSyncError('登录同步失败: ' + String(e instanceof Error ? e.message : e));
       } finally {
@@ -321,47 +353,51 @@ export default function Home() {
     return () => { cancelled = true; };
   }, [mounted, isAuthenticated, authLoading]);
 
-  // 实时轮询云端数据变更（每10秒）
+  // 实时轮询云端数据变更（每30秒，优先轻量检查）
   const recordsRef = useRef(records);
   recordsRef.current = records;
   const selectedDateRef = useRef(selectedDate);
   selectedDateRef.current = selectedDate;
   const pollingRef = useRef(false);
   const lastCloudHashRef = useRef<string>('');
+  const syncingCloudRef = useRef(false);
+  const pendingSyncDate = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!mounted || !isAuthenticated || authLoading) return;
+    if (!mounted || !isAuthenticated || authLoading || !initialSyncDone.current) return;
 
-    const POLL_INTERVAL = 10000; // 10秒轮询一次
+    const POLL_INTERVAL = 30000; // 30秒轮询
 
     const pollCloud = async () => {
-      if (pollingRef.current) return; // 防止并发轮询
+      if (pollingRef.current || syncingCloudRef.current) return;
       pollingRef.current = true;
       try {
         const token = await getAccessToken();
         if (!token) return;
-        const cloudRecords = await fetchFromCloud(token);
+
+        // 轻量检查时间戳 ~200ms
+        const timestamps = await fetchFromCloudTimestamps(token);
         const cloudHash = JSON.stringify(
-          Object.keys(cloudRecords).sort().map(k => `${k}:${cloudRecords[k].importedAt}`)
+          Object.keys(timestamps).sort().map(k => `${k}:${timestamps[k]}`)
         );
-        if (cloudHash === lastCloudHashRef.current) return; // 无变化，跳过
+        if (cloudHash === lastCloudHashRef.current) return;
         lastCloudHashRef.current = cloudHash;
 
-        const currentRecords = recordsRef.current;
-        const merged = await mergeRecords(currentRecords, cloudRecords);
+        // 有变更，全量拉取
+        const cloudRecords = await fetchFromCloud(token);
+        if (Object.keys(cloudRecords).length === 0) return;
 
-        // 检查是否有实际变化
-        const mergedKeys = Object.keys(merged).sort().join(',');
-        const currentKeys = Object.keys(currentRecords).sort().join(',');
-        if (mergedKeys === currentKeys) return;
+        // 更新缓存
+        saveCloudCache(cloudRecords);
+        saveCloudHash(cloudHash);
 
-        saveAllRecords(merged);
-        setRecords(merged);
+        if (pendingSyncDate.current && !cloudRecords[pendingSyncDate.current]) return;
+        pendingSyncDate.current = null;
+        setRecords(cloudRecords);
 
-        // 如果当前选中的日期被删除，自动切换到最近的日期
         const curDate = selectedDateRef.current;
-        if (curDate && !merged[curDate]) {
-          const dates = Object.keys(merged).sort().reverse();
+        if (curDate && !cloudRecords[curDate]) {
+          const dates = Object.keys(cloudRecords).sort().reverse();
           setSelectedDate(dates[0] || null);
         }
       } catch {
@@ -379,43 +415,34 @@ export default function Home() {
     if (mounted && !authLoading && !isAuthenticated) router.replace('/login');
   }, [mounted, authLoading, isAuthenticated, router]);
 
-  const handleImported = useCallback((newRecords: AllRecords) => {
+  const handleImported = useCallback((newRecords: AllRecords, newRecordsOnly?: AllRecords) => {
     setRecords(newRecords);
-    saveAllRecords(newRecords);
     const dates = Object.keys(newRecords).sort().reverse();
     if (dates.length > 0) setSelectedDate(dates[0]);
-    const dates_sorted = Object.keys(newRecords).sort();
-    if (dates_sorted.length > 0) {
-      (async () => {
-        try {
-          const result = await apiComputeFilteredSummary(newRecords, dates_sorted[0], dates_sorted[dates_sorted.length - 1], [], []);
-          if (result.summary) {
-            setTotalOrders(result.summary.totalOrders);
-            setTotalProducts(result.summary.productBreakdown.length);
-          }
-        } catch (e) {
-          const ps = new Set<string>(); let os = 0;
-          for (const r of Object.values(newRecords)) for (const [pn, pd] of Object.entries(r.data || {})) { ps.add(pn); os += (pd.total as number) || 0; }
-          setTotalOrders(os); setTotalProducts(ps.size);
-        }
-      })();
+    // 增量同步：只上传新增日期，避免全量数据超出请求体限制
+    const toSync = newRecordsOnly || newRecords;
+    // 记录待确认的日期，防止轮询在同步完成前覆盖
+    if (newRecordsOnly) {
+      pendingSyncDate.current = Object.keys(newRecordsOnly)[0] || null;
     }
+    syncingCloudRef.current = true;
     (async () => {
-      try { const token = await getAccessToken(); if (token) await syncToCloud(newRecords, token); }
+      try { const token = await getAccessToken(); if (token) await syncToCloud(toSync, token, false); }
       catch (e) { setSyncError('云端同步失败: ' + String(e instanceof Error ? e.message : e)); }
+      finally { syncingCloudRef.current = false; }
     })();
   }, []);
 
   const handleRecordsChange = useCallback((updated: AllRecords) => {
     setRecords(updated);
-    saveAllRecords(updated);
-    // Use selectedDateRef instead of state to avoid recreation on every date change
     const curDate = selectedDateRef.current;
     const dates = Object.keys(updated).sort().reverse();
     if (curDate && !updated[curDate]) setSelectedDate(dates[0] || null);
+    syncingCloudRef.current = true;
     (async () => {
-      try { const token = await getAccessToken(); if (token) await syncToCloud(updated, token); }
+      try { const token = await getAccessToken(); if (token) await syncToCloud(updated, token, true); }
       catch (e) { setSyncError('云端同步失败: ' + String(e instanceof Error ? e.message : e)); }
+      finally { syncingCloudRef.current = false; }
     })();
   }, []);
 

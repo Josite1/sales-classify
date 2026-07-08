@@ -64,7 +64,9 @@ async def import_excel_with_rules(sales_file: UploadFile = File(...)):
     try:
         result = processor.process_with_rules_dict(sales_bytes, reasons, products)
     except Exception as e:
-        raise HTTPException(500, f'Processing failed: {e}')
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(500, f'Excel处理异常: {e}')
 
     return {'success': True, 'data': result}
 

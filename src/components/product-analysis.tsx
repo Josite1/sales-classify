@@ -474,19 +474,23 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
     } else {
       option = { tooltip: { ...TOOLTIP_STYLE, formatter: (p: any) => `<b>${p.name}</b><br/>${p.value}单` }, series: [{ type: 'treemap', width: '95%', height: '85%', top: 5, roam: false, nodeClick: false, breadcrumb: { show: false }, label: { show: true, fontSize: 12, fontWeight: 'bold' as const, color: '#fff', formatter: (p: any) => `${p.name}\n${p.value}单` }, itemStyle: { borderColor: '#fff', borderWidth: 3 }, data: dataWithColor }] };
     }
-    chart.setOption(option, true);
+    chart.setOption(option, false);  // false = notMerge，确保数据完全替换而非合并
     const handleResize = () => chart.resize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
   useEffect(() => {
-    // 如果 DOM 元素已变化（清空筛选导致 div 卸载后重建），销毁旧实例
-    if (qtyChartInstanceRef.current && qtyChartRef.current && qtyChartInstanceRef.current.getDom() !== qtyChartRef.current) {
+    // 数据变化时强制重建图表实例，确保完全刷新
+    if (qtyChartInstanceRef.current && !qtyChartInstanceRef.current.isDisposed()) {
       qtyChartInstanceRef.current.dispose();
       qtyChartInstanceRef.current = null;
     }
-    return renderChart(qtyChartRef, qtyChartInstanceRef, qtyData, qtyChartType);
+    if (!qtyChartRef.current || qtyData.length === 0) return;
+    if (!qtyChartInstanceRef.current || qtyChartInstanceRef.current.isDisposed()) {
+      qtyChartInstanceRef.current = echarts.init(qtyChartRef.current, 'brutal');
+    }
+    renderChart(qtyChartRef, qtyChartInstanceRef, qtyData, qtyChartType);
   }, [qtyData, qtyChartType, renderChart]);
 
   useEffect(() => {
@@ -506,7 +510,7 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
       const barSorted = [...sortedFlag].sort((a, b) => a.value - b.value);
       option = { tooltip: { ...TOOLTIP_STYLE, trigger: 'axis', axisPointer: { type: 'shadow' } }, grid: { left: '3%', right: '8%', bottom: '3%', top: '8%', containLabel: true }, xAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 11 }, splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }, axisLine: { show: false }, axisTick: { show: false } }, yAxis: { type: 'category', data: barSorted.map(d => d.name), axisLabel: { color: '#475569', fontSize: 11 }, axisLine: { show: false }, axisTick: { show: false } }, series: [{ type: 'bar', data: barSorted.map(d => ({ value: d.value, itemStyle: { color: FLAG_COLOR_MAP[d.name] || VIVID_COLORS[0] } })), barWidth: '60%', label: { show: true, position: 'right', fontSize: 11, fontWeight: 'bold', color: '#475569', formatter: '{c}' } }] };
     }
-    chart.setOption(option, true);
+    chart.setOption(option, false);  // false = notMerge，确保数据完全替换而非合并
     const handleResize = () => chart.resize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -740,7 +744,7 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
       )}
 
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent><DialogHeader><DialogTitle>编辑产品显示名</DialogTitle></DialogHeader>
+        <DialogContent><DialogHeader><DialogTitle>编辑产品显示名</DialogTitle><DialogDescription>修改产品展示名称和备注</DialogDescription></DialogHeader>
           <div className="grid gap-4 py-2">
             <div className="grid gap-2"><Label>显示名称</Label><Input value={editAlias} onChange={e => setEditAlias(e.target.value)} placeholder="输入新的显示名称" /></div>
             <div className="grid gap-2"><Label>备注</Label><Textarea value={editNote} onChange={e => setEditNote(e.target.value)} placeholder="添加备注说明" /></div>

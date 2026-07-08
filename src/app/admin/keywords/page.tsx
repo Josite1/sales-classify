@@ -19,6 +19,7 @@ import {
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
   DialogFooter,
@@ -700,6 +701,7 @@ export default function KeywordsAdminPage() {
               <DialogTitle className="animate-fadeIn">
                 {editingReason ? '编辑售后原因' : editingProduct ? '编辑品类' : '新增规则'}
               </DialogTitle>
+              <DialogDescription>{editingReason ? '修改售后关键词分类' : editingProduct ? '修改品类关键词分类' : '创建新的关键词规则'}</DialogDescription>
             </DialogHeader>
             <div className='grid gap-4 py-2'>
               <div className='grid gap-2'>

@@ -15,13 +15,14 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { AlertCircle, Upload, FileJson } from 'lucide-react';
 import { parseDirtyJson, validateImportData } from '@/lib/compute-service';
-import { addDateRecord } from '@/lib/records-service';
+import { fetchFromCloud } from '@/lib/records-service';
+import { getAccessToken } from '@/lib/auth';
 import type { AllRecords, ProductData } from '@/lib/types';
 
 interface DataImportDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onImported: (records: AllRecords) => void;
+  onImported: (records: AllRecords, newRecordsOnly?: AllRecords) => void;
 }
 
 export function DataImportDialog({ open, onOpenChange, onImported }: DataImportDialogProps) {
@@ -62,9 +63,14 @@ export function DataImportDialog({ open, onOpenChange, onImported }: DataImportD
         return;
       }
 
-      const records = addDateRecord(date, parseResult.result as Record<string, ProductData>);
+      const newRecord = { date, data: parseResult.result as Record<string, ProductData>, importedAt: Date.now() };
+      // 从云端获取完整数据，追加新日期
+      const token = await getAccessToken();
+      const cloudRecords = token ? await fetchFromCloud(token) : {};
+      const records: AllRecords = { ...cloudRecords, [date]: newRecord };
+      const newRecordsOnly: AllRecords = { [date]: newRecord };
       setJsonText('');
-      onImported(records);
+      onImported(records, newRecordsOnly);
       onOpenChange(false);
     } catch (err) {
       setError('导入失败: ' + (err instanceof Error ? err.message : '未知错误'));

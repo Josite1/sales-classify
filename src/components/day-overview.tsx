@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { DataTableExport, type DataRow } from '@/components/data-table-export';
 import {
   TrendingUp,
@@ -1021,6 +1021,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
         <DialogContent className="max-w-sm">
           <DialogHeader>
             <DialogTitle className="text-sm font-bold">产品变化</DialogTitle>
+            <DialogDescription>新增和消失的产品统计</DialogDescription>
           </DialogHeader>
           <div className="grid grid-cols-1 gap-3 py-2">
             {productChange ? (

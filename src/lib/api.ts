@@ -16,8 +16,21 @@ async function request<T = unknown>(
     ...options,
   });
   if (!res.ok) {
-    const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || 'API error: ' + res.status);
+    const text = await res.text().catch(() => '');
+    let detail = '';
+    try {
+      const err = JSON.parse(text);
+      detail = err.detail || err.error || err.message || '';
+    } catch {
+      detail = text || res.statusText;
+    }
+    // 404 = no data (expected), 500 = server error (unexpected)
+    if (res.status >= 500) {
+      console.error(`[API] ${res.status} ${path}:`, detail || text);
+    } else {
+      console.warn(`[API] ${res.status} ${path}:`, detail || text);
+    }
+    throw new Error(detail || `HTTP ${res.status}: ${res.statusText}`);
   }
   return res.json();
 }

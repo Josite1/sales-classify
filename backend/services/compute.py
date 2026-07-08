@@ -286,24 +286,18 @@ def compute_filtered_summary(
             p_total = 0
             p_red_flags = 0
 
-            if selected_shops:
-                shop_stats = p_data.get('店铺分类', {}) or {}
-                has_match = False
-                for flag, shops_in_flag in shop_stats.items():
-                    if not isinstance(shops_in_flag, dict):
-                        continue
-                    for s_name, shop_val in shops_in_flag.items():
-                        if s_name in selected_shops:
-                            cnt = get_shop_count(shop_val)
-                            has_match = True
-                            p_total += cnt
-                            if flag == '红色旗子':
-                                p_red_flags += cnt
-                if not has_match:
+            shop_stats = p_data.get('店铺分类', {}) or {}
+            # 统一从店铺数据求和，确保筛选/非筛选路径数据一致
+            for flag, shops_in_flag in shop_stats.items():
+                if not isinstance(shops_in_flag, dict):
                     continue
-            else:
-                p_total = get_product_total(p_data)
-                p_red_flags = get_flags(p_data).get('红色旗子', 0) or 0
+                for s_name, shop_val in shops_in_flag.items():
+                    if selected_shops and s_name not in selected_shops:
+                        continue
+                    cnt = get_shop_count(shop_val)
+                    p_total += cnt
+                    if flag == '红色旗子':
+                        p_red_flags += cnt
 
             if p_total == 0:
                 continue
@@ -376,7 +370,7 @@ def compute_options(
     for s in shops_set:
         shop_count[s] = 0
 
-    # Second pass: compute counts
+    # Second pass: compute counts (统一从店铺数据求和)
     for d in dates:
         record = records[d]
         for p_name, p_data in record.get('data', {}).items():
@@ -393,7 +387,15 @@ def compute_options(
                 if p_total > 0:
                     product_count[p_name] = product_count.get(p_name, 0) + p_total
             else:
-                product_count[p_name] = product_count.get(p_name, 0) + get_product_total(p_data)
+                # 统一从店铺数据求和（不再读 p_data['total']）
+                p_total = 0
+                for flag, shops_in_flag in shop_stats.items():
+                    if not isinstance(shops_in_flag, dict):
+                        continue
+                    for s_name, shop_val in shops_in_flag.items():
+                        p_total += get_shop_count(shop_val)
+                if p_total > 0:
+                    product_count[p_name] = product_count.get(p_name, 0) + p_total
 
             if selected_products and p_name not in selected_products:
                 continue
@@ -454,51 +456,39 @@ def _compute_single_day_summary(
         p_purple = 0
         shop_stats = p_data.get('店铺分类', {}) or {}
 
-        if sel_shops:
-            for flag, shops_in_flag in shop_stats.items():
-                if not isinstance(shops_in_flag, dict):
+        # 统一从店铺数据求和，确保筛选/非筛选路径数据一致
+        for flag, shops_in_flag in shop_stats.items():
+            if not isinstance(shops_in_flag, dict):
+                continue
+            flag_count = 0
+            for s_name, shop_val in shops_in_flag.items():
+                if sel_shops and s_name not in sel_shops:
                     continue
-                flag_count = 0
-                for s_name, shop_val in shops_in_flag.items():
-                    if s_name not in sel_shops:
-                        continue
-                    cnt = get_shop_count(shop_val)
-                    if cnt == 0:
-                        continue
-                    flag_count += cnt
-                    if flag == '红色旗子' and isinstance(shop_val, dict):
-                        shop = shop_val
-                        remark_cats = shop.get('客服备注分类', {}) or {}
-                        for reason, val in remark_cats.items():
-                            if isinstance(val, (int, float)):
-                                result['reasons'][reason] = result['reasons'].get(reason, 0) + int(val)
-                            elif isinstance(val, dict) and '订单数' in val:
-                                result['reasons'][reason] = result['reasons'].get(reason, 0) + val['订单数']
+                cnt = get_shop_count(shop_val)
+                if cnt == 0:
+                    continue
+                flag_count += cnt
+                if flag == '红色旗子' and isinstance(shop_val, dict):
+                    remark_cats = shop_val.get('客服备注分类', {}) or {}
+                    for reason, val in remark_cats.items():
+                        if isinstance(val, (int, float)):
+                            result['reasons'][reason] = result['reasons'].get(reason, 0) + int(val)
+                        elif isinstance(val, dict) and '订单数' in val:
+                            result['reasons'][reason] = result['reasons'].get(reason, 0) + val['订单数']
 
-                if flag_count == 0:
-                    continue
-                p_total += flag_count
-                if flag == '红色旗子':
-                    p_red += flag_count
-                elif flag == '绿色旗子':
-                    p_green += flag_count
-                elif flag == '灰色旗子':
-                    p_grey += flag_count
-                elif flag == '黄色旗子':
-                    p_yellow += flag_count
-                elif flag == '紫色旗子':
-                    p_purple += flag_count
-        else:
-            p_total = get_product_total(p_data)
-            flags = get_flags(p_data)
-            p_red = flags.get('红色旗子', 0) or 0
-            p_green = flags.get('绿色旗子', 0) or 0
-            p_grey = flags.get('灰色旗子', 0) or 0
-            p_yellow = flags.get('黄色旗子', 0) or 0
-            p_purple = flags.get('紫色旗子', 0) or 0
-            red_reasons = get_red_flag_reasons(p_data)
-            for reason, count in red_reasons.items():
-                result['reasons'][reason] = result['reasons'].get(reason, 0) + count
+            if flag_count == 0:
+                continue
+            p_total += flag_count
+            if flag == '红色旗子':
+                p_red += flag_count
+            elif flag == '绿色旗子':
+                p_green += flag_count
+            elif flag == '灰色旗子':
+                p_grey += flag_count
+            elif flag == '黄色旗子':
+                p_yellow += flag_count
+            elif flag == '紫色旗子':
+                p_purple += flag_count
 
         if p_total == 0:
             continue
@@ -643,8 +633,9 @@ def compute_trend_top_items(daily_data: List[Dict], key: str, count: int = 8) ->
 
 # ==================== Product Analysis ====================
 
-def build_product_data_from_shop_stats(shop_stats: Dict) -> Dict:
-    """Rebuild a ProductData from filtered shop stats (product-analysis.tsx)."""
+def build_product_data_from_shop_stats(shop_stats: Dict, prov_data: Dict = None) -> Dict:
+    """Rebuild a ProductData from filtered shop stats (product-analysis.tsx).
+    prov_data: 原始产品的省份分类数据，筛选店铺时透传保留（省份不按店铺维度拆分）。"""
     flags = {}
     qty_flag_category = {}
     remark_flag_category = {}
@@ -690,7 +681,7 @@ def build_product_data_from_shop_stats(shop_stats: Dict) -> Dict:
         '标旗分类': flags,
         '数量分类': qty_flag_category,
         '客服备注分类': remark_flag_category,
-        '省份分类': {},
+        '省份分类': prov_data if prov_data is not None else {},
         '店铺分类': shop_stats,
     }
 
@@ -747,7 +738,8 @@ def compute_product_analysis(
                     new_shop_stats[flag] = filtered_shops
             if not has_data:
                 continue
-            filtered = build_product_data_from_shop_stats(new_shop_stats)
+            prov_data = raw_data.get('省份分类', {})
+            filtered = build_product_data_from_shop_stats(new_shop_stats, prov_data)
         else:
             filtered = raw_data
 
