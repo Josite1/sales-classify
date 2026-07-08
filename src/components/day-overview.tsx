@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -314,7 +314,7 @@ function GlobalProductColumn({ products, dateLabel }: {
           </Badge>
         </CardTitle>
       </CardHeader>
-      <CardContent className="pt-1 pb-1">
+      <CardContent className="pt-1 pb-1 px-3">
         <div ref={chartRef} className="w-full h-[450px]" />
       </CardContent>
     </Card>
@@ -891,7 +891,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                 group-hover:scale-110 group-hover:shadow-md
               `;
               const valueClass = `
-                text-4xl font-black tabular-nums tracking-tight
+                text-2xl font-normal tabular-nums tracking-tight
                 animate-number-pop
               `;
               const trendBaseClass = "flex items-center gap-1 mt-1 animate-fade-in-up";
@@ -901,7 +901,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                   <Card key={card.label} className={baseCardClass} style={{ borderLeft: `4px solid ${card.accentColor}`, backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)` }}>
                     <CardContent className="pt-6 pb-6">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm text-muted-foreground font-semibold">{card.label}</p>
+                        <p className="text-xs text-muted-foreground font-normal">{card.label}</p>
                         <div className={iconContainerClass} style={{ backgroundColor: card.iconBg }}>
                           <Icon className="h-5 w-5" style={{ color: card.accentColor }} />
                         </div>
@@ -931,7 +931,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                   <Card key={card.label} className={`${baseCardClass} cursor-pointer hover:ring-1 hover:ring-primary/30`} style={{ borderLeft: `4px solid ${card.accentColor}`, backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)` }} onClick={() => setProductDetailOpen(true)}>
                     <CardContent className="pt-6 pb-6">
                       <div className="flex items-center justify-between">
-                        <p className="text-sm text-muted-foreground font-semibold">{card.label}</p>
+                        <p className="text-xs text-muted-foreground font-normal">{card.label}</p>
                         <div className={iconContainerClass} style={{ backgroundColor: card.iconBg }}>
                           <Icon className="h-5 w-5" style={{ color: card.accentColor }} />
                         </div>
@@ -956,7 +956,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                 <Card key={card.label} className={baseCardClass} style={{ borderLeft: `4px solid ${card.accentColor}`, backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)` }}>
                   <CardContent className="pt-6 pb-6">
                     <div className="flex items-center justify-between">
-                      <p className="text-sm text-muted-foreground font-semibold">{card.label}</p>
+                      <p className="text-xs text-muted-foreground font-normal">{card.label}</p>
                       <div className={iconContainerClass} style={{ backgroundColor: card.iconBg }}>
                         <Icon className="h-5 w-5" style={{ color: card.accentColor }} />
                       </div>

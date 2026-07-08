@@ -203,6 +203,19 @@ async def product_analysis(payload: Dict):
 
     stats = svc.compute_product_stats(aggregated)
 
+    # 诊断：打印筛选后的 qtyStats 汇总
+    selected_shops = payload.get('selectedShops', [])
+    if selected_shops:
+        product_name = payload.get('productName', '')
+        print(f"[DIAG:product-analysis] product={product_name}, shops={selected_shops}")
+        print(f"  total={aggregated.get('total')}, flags={aggregated.get('标旗分类')}")
+        qty_data = aggregated.get('数量分类', {})
+        for flag, qmap in qty_data.items():
+            qsum = sum(int(v) for v in qmap.values() if isinstance(v, (int, float)))
+            flag_total = aggregated.get('标旗分类', {}).get(flag, 0)
+            print(f"  qty[{flag}]: sum={qsum}, flag_total={flag_total}, 匹配={qsum==flag_total}")
+        print(f"  qtyStats: {stats.get('qtyStats')}")
+
     return {
         'productData': aggregated,
         'globalTotal': global_total,

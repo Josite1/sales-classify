@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { registerBrutalTheme, getBrutalTooltip, getBrutalGrid, getBrutalXAxis, getBrutalYAxis, BRUTAL_COLORS } from '@/lib/echarts-theme';
@@ -621,9 +621,9 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
             <CardContent>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-5">
                 {metricCards.map(card => (
-                  <div key={card.label} className="rounded-xl p-5 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${card.color}10 0%, ${card.color}05 100%)`, borderLeft: `4px solid ${card.color}` }}>
-                    <p className="text-sm text-muted-foreground font-semibold">{card.label}</p>
-                    <p className={`mt-2 font-black tabular-nums ${card.isText ? 'text-base line-clamp-2' : 'text-3xl'}`} style={{ color: card.color }}>{card.value}</p>
+                  <div key={card.label} className="rounded-xl p-4 relative overflow-hidden" style={{ background: `linear-gradient(135deg, ${card.color}10 0%, ${card.color}05 100%)`, borderLeft: `4px solid ${card.color}` }}>
+                    <p className="text-xs text-muted-foreground font-normal">{card.label}</p>
+                    <p className={`mt-2 font-black tabular-nums ${card.isText ? 'text-base line-clamp-2' : 'text-2xl'}`} style={{ color: card.color }}>{card.value}</p>
                   </div>
                 ))}
               </div>
@@ -649,7 +649,7 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
                   <div className="flex gap-1">{QTY_CHART_OPTIONS.map(opt => <Button key={opt.value} variant={qtyChartType === opt.value ? 'default' : 'outline'} size="sm" className="h-6 px-2 text-[10px] rounded-lg" onClick={() => setQtyChartType(opt.value)}>{opt.label}</Button>)}</div>
                 </div>
               </CardHeader>
-              <CardContent>{qtyData.length === 0 ? (<div className="flex items-center justify-center h-[300px] text-muted-foreground"><p className="text-xs">无{qtyFlagType.replace('旗子', '旗')}数量数据</p></div>) : (<div ref={qtyChartRef} className="w-full h-[340px]" />)}</CardContent>
+              <CardContent className="px-3">{qtyData.length === 0 ? (<div className="flex items-center justify-center h-[300px] text-muted-foreground"><p className="text-xs">无{qtyFlagType.replace('旗子', '旗')}数量数据</p></div>) : (<div ref={qtyChartRef} className="w-full h-[340px]" />)}</CardContent>
             </Card>
             <Card className="brutal-card-lift rounded-xl shadow-sm border-t-4 border-t-amber-400/60 lg:col-span-4">
               <CardHeader className="pb-2">
@@ -658,7 +658,7 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
                   <div className="flex gap-1">{FLAG_CHART_OPTIONS.map(opt => <Button key={opt.value} variant={flagChartType === opt.value ? 'default' : 'outline'} size="sm" className="h-6 px-2 text-[10px] rounded-lg" onClick={() => setFlagChartType(opt.value)}>{opt.label}</Button>)}</div>
                 </div>
               </CardHeader>
-              <CardContent>{flagData.length === 0 ? (<div className="flex items-center justify-center h-[300px] text-muted-foreground"><p className="text-xs">无标旗数据</p></div>) : (<div ref={flagChartRef} className="w-full h-[440px]" />)}</CardContent>
+              <CardContent className="px-3">{flagData.length === 0 ? (<div className="flex items-center justify-center h-[300px] text-muted-foreground"><p className="text-xs">无标旗数据</p></div>) : (<div ref={flagChartRef} className="w-full h-[440px]" />)}</CardContent>
             </Card>
           </div>
 
@@ -674,7 +674,7 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
                 </div>
                 <CardDescription className="text-xs">{remarkFlagType}客服备注原因排名（含手动归类）</CardDescription>
               </CardHeader>
-              <CardContent><div ref={reasonBarRef} className="w-full" style={{ height: Math.max(480, remarkBarData.length * 36 + 24) }} /></CardContent>
+              <CardContent className="px-3"><div ref={reasonBarRef} className="w-full" style={{ height: Math.max(480, remarkBarData.length * 36 + 24) }} /></CardContent>
             </Card>
           )}
 

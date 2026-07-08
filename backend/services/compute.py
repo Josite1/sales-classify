@@ -652,6 +652,9 @@ def build_product_data_from_shop_stats(shop_stats: Dict, prov_data: Dict = None)
                 continue
             if isinstance(shop_val, (int, float)):
                 flags[flag_name] += int(shop_val)
+                # 纯数字店铺缺少数量分布，兜底填充到 '1' 桶
+                qty_flag_category[flag_name]['1'] = \
+                    qty_flag_category[flag_name].get('1', 0) + int(shop_val)
                 continue
 
             shop = shop_val if isinstance(shop_val, dict) else {}
@@ -660,10 +663,19 @@ def build_product_data_from_shop_stats(shop_stats: Dict, prov_data: Dict = None)
                 flags[flag_name] += int(cnt)
 
             qty_dist = shop.get('数量分布', {}) or {}
-            for qty, cnt in qty_dist.items():
-                if isinstance(cnt, (int, float)):
-                    qty_flag_category[flag_name][qty] = \
-                        qty_flag_category[flag_name].get(qty, 0) + int(cnt)
+            if qty_dist:
+                for qty, cnt_val in qty_dist.items():
+                    try:
+                        n = int(cnt_val) if not isinstance(cnt_val, (int, float)) else int(cnt_val)
+                        if n > 0:
+                            qty_flag_category[flag_name][str(qty)] = \
+                                qty_flag_category[flag_name].get(str(qty), 0) + n
+                    except (ValueError, TypeError):
+                        pass
+            elif cnt and isinstance(cnt, (int, float)) and int(cnt) > 0:
+                # 兜底：旧数据缺少 数量分布，用 count 填充为单袋
+                qty_flag_category[flag_name]['1'] = \
+                    qty_flag_category[flag_name].get('1', 0) + int(cnt)
 
             remark_cats = shop.get('客服备注分类', {}) or {}
             for reason, val in remark_cats.items():
@@ -726,6 +738,7 @@ def compute_product_analysis(
             shop_stats = raw_data.get('店铺分类', {}) or {}
             new_shop_stats = {}
             has_data = False
+            num_shops = 0  # 统计纯数字类型的店铺
             for flag, shops in shop_stats.items():
                 if not isinstance(shops, dict):
                     continue
@@ -734,12 +747,29 @@ def compute_product_analysis(
                     if shop in selected_shops:
                         filtered_shops[shop] = shop_val
                         has_data = True
+                        if isinstance(shop_val, (int, float)):
+                            num_shops += 1
                 if filtered_shops:
                     new_shop_stats[flag] = filtered_shops
+            if num_shops > 0:
+                print(f"[DIAG] {d_str} {product_name}: {num_shops} 个店铺值为纯数字(无数量分布)")
             if not has_data:
                 continue
             prov_data = raw_data.get('省份分类', {})
             filtered = build_product_data_from_shop_stats(new_shop_stats, prov_data)
+            # 诊断：对比筛选重建后的数量分类 vs 原始数量分类
+            raw_qty = raw_data.get('数量分类', {}) or {}
+            built_qty = filtered.get('数量分类', {})
+            for flag_name in built_qty:
+                raw_flag_qty = raw_qty.get(flag_name, {})
+                built_flag_qty = built_qty.get(flag_name, {})
+                raw_sum = sum(int(v) for v in raw_flag_qty.values() if isinstance(v, (int, float)))
+                built_sum = sum(int(v) for v in built_flag_qty.values() if isinstance(v, (int, float)))
+                if raw_sum != built_sum:
+                    print(f"[DIAG] {d_str} {product_name}/{flag_name}: 原始数量分类sum={raw_sum}, 筛选重建sum={built_sum}, 差异={raw_sum - built_sum}")
+                    print(f"  原始: {raw_flag_qty}")
+                    print(f"  重建: {built_flag_qty}")
+                    print(f"  new_shop_stats[{flag_name}]: {list(new_shop_stats.get(flag_name, {}).keys())}")
         else:
             filtered = raw_data
 

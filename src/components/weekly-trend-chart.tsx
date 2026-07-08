@@ -413,20 +413,20 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases }: Week
         <>
           <Card className="card-hover-effect animate-slide-up" style={{ animationDelay: '0.1s' }}>
             <CardHeader className="pb-2"><CardTitle className="text-base font-bold flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary animate-bounce-slow" />{timeMode === 'week' ? '当周每日趋势' : timeMode === 'month' ? '当月按周趋势' : timeMode === 'year' ? '当年按月趋势' : '自定义时段趋势'}{selectedProducts.length === 1 && <Badge variant="secondary" className="ml-2 text-xs animate-pop">{aliases[selectedProducts[0]]?.alias || selectedProducts[0]}</Badge>}{selectedShops.length === 1 && <Badge variant="secondary" className="ml-2 text-xs animate-pop">{selectedShops[0]}</Badge>}</CardTitle><CardDescription className="text-xs mt-1">{dateRange.start} ~ {dateRange.end} {timeMode === 'month' ? '按周汇总' : timeMode === 'year' ? '按月汇总' : '每日明细'}</CardDescription></CardHeader>
-            <CardContent><div ref={overviewRef} className="w-full h-[340px]" /></CardContent>
+            <CardContent className="px-3"><div ref={overviewRef} className="w-full h-[340px]" /></CardContent>
           </Card>
 
           {topProducts.length > 0 && (
             <Card className="card-hover-effect animate-slide-up" style={{ animationDelay: '0.2s' }}>
               <CardHeader className="pb-2"><CardTitle className="text-base font-bold flex items-center gap-2"><TrendingUp className="h-4 w-4 text-primary animate-bounce-slow" />{selectedProducts.length > 0 ? `已选 ${selectedProducts.length} 产品趋势` : `Top ${topProducts.length} 产品趋势`}</CardTitle><CardDescription className="text-xs mt-1">基于当前聚合粒度的趋势变化</CardDescription></CardHeader>
-              <CardContent><div ref={productTrendRef} className="w-full h-[380px]" /></CardContent>
+              <CardContent className="px-3"><div ref={productTrendRef} className="w-full h-[380px]" /></CardContent>
             </Card>
           )}
 
           {topReasons.length > 0 && (
             <Card className="card-hover-effect animate-slide-up" style={{ animationDelay: '0.3s' }}>
               <CardHeader className="pb-2"><CardTitle className="text-base font-bold flex items-center gap-2">异常归因变化 (Top {topReasons.length})</CardTitle><CardDescription className="text-xs mt-1">按当前粒度汇总的 Top 异常原因</CardDescription></CardHeader>
-              <CardContent><div ref={reasonTrendRef} className="w-full h-[420px]" /></CardContent>
+              <CardContent className="px-3"><div ref={reasonTrendRef} className="w-full h-[420px]" /></CardContent>
             </Card>
           )}
         </>

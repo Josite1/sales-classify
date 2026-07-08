@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useRef, useEffect, useState, useMemo, useCallback } from 'react';
 import { registerBrutalTheme, getBrutalTooltip, getBrutalGrid, getBrutalXAxis, getBrutalYAxis, BRUTAL_COLORS } from '@/lib/echarts-theme';
@@ -560,7 +560,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
           {loading ? (
             <>
               {[0, 1, 2, 3].map(i => (
-                <div key={i} className="rounded-xl border border-border/30 p-5 shadow-sm">
+                <div key={i} className="rounded-xl border border-border/30 p-4 shadow-sm">
                   <div className="skeleton skeleton-text" />
                   <div className="skeleton skeleton-number" style={{ marginTop: 12 }} />
                 </div>
@@ -568,13 +568,13 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
             </>
           ) : (
             <>
-              <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 p-5 shadow-sm hover:shadow-md transition-all duration-300 animate-fade-in-up animate-delay-1 pulse-on-update ripple-effect">
-                <div className="text-sm text-muted-foreground font-semibold mb-2">覆盖省份</div>
-                <AnimatedValue value={chartData.length} className="text-3xl font-black text-primary tabular-nums" />
+              <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 p-4 shadow-sm hover:shadow-md transition-all duration-300 animate-fade-in-up animate-delay-1 pulse-on-update ripple-effect">
+                <div className="text-xs text-muted-foreground font-normal mb-1.5">覆盖省份</div>
+                <AnimatedValue value={chartData.length} className="text-2xl font-normal text-primary tabular-nums" />
               </div>
-              <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-5 shadow-sm hover:shadow-md transition-all duration-300 animate-fade-in-up animate-delay-2 pulse-on-update">
+              <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4 shadow-sm hover:shadow-md transition-all duration-300 animate-fade-in-up animate-delay-2 pulse-on-update">
                 <div className="flex items-center gap-1.5 mb-2">
-                  <span className="text-sm text-muted-foreground font-semibold">售后总数</span>
+                  <span className="text-xs text-muted-foreground font-normal">售后总数</span>
                   <select value={flagType} onChange={e => setFlagType(e.target.value)}
                     className="text-xs px-1.5 py-0 h-5 rounded-sm font-medium cursor-pointer outline-none"
                     style={flagType === '总数' ? { borderColor: '#94a3b8', color: '#475569', backgroundColor: '#f8fafc' }
@@ -587,15 +587,15 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
                     <option value="总数">总数</option>
                   </select>
                 </div>
-                <AnimatedValue value={aggregatedData?.total || 0} className="text-3xl font-black text-emerald-600 tabular-nums" />
+                <AnimatedValue value={aggregatedData?.total || 0} className="text-2xl font-normal text-emerald-600 tabular-nums" />
               </div>
-              <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-amber-500/5 p-5 shadow-sm hover:shadow-md transition-all duration-300 animate-fade-in-up animate-delay-3 pulse-on-update">
-                <div className="text-sm text-muted-foreground font-semibold mb-2">乡镇/村</div>
-                <AnimatedValue value={totalTownVillage} className="text-3xl font-black text-amber-600 tabular-nums" />
+              <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-amber-500/5 p-4 shadow-sm hover:shadow-md transition-all duration-300 animate-fade-in-up animate-delay-3 pulse-on-update">
+                <div className="text-xs text-muted-foreground font-normal mb-1.5">乡镇/村</div>
+                <AnimatedValue value={totalTownVillage} className="text-2xl font-normal text-amber-600 tabular-nums" />
               </div>
-              <div className="rounded-xl border border-orange-500/20 bg-gradient-to-br from-orange-500/10 to-orange-500/5 p-5 shadow-sm hover:shadow-md transition-all duration-300 animate-fade-in-up animate-delay-4 pulse-on-update">
-                <div className="text-sm text-muted-foreground font-semibold mb-2">乡镇占比</div>
-                <span className="text-3xl font-black text-orange-600 tabular-nums">{totalValue > 0 ? ((totalTownVillage / totalValue) * 100).toFixed(1) : '0.0'}%</span>
+              <div className="rounded-xl border border-orange-500/20 bg-gradient-to-br from-orange-500/10 to-orange-500/5 p-4 shadow-sm hover:shadow-md transition-all duration-300 animate-fade-in-up animate-delay-4 pulse-on-update">
+                <div className="text-xs text-muted-foreground font-normal mb-1.5">乡镇占比</div>
+                <span className="text-2xl font-normal text-orange-600 tabular-nums">{totalValue > 0 ? ((totalTownVillage / totalValue) * 100).toFixed(1) : '0.0'}%</span>
               </div>
             </>
           )}
@@ -617,7 +617,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
               }}>{opt.icon}{opt.label}</Button>))}</div>
             </div>
           </CardHeader>
-          <CardContent className="pt-4">
+          <CardContent className="pt-4 px-3">
             {loading ? (
               <div className="skeleton skeleton-chart" style={{ borderRadius: 12 }}>
                 <div className="flex items-center justify-center h-full gap-2">
@@ -682,7 +682,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
               </Popover>
             </div>
           </CardHeader>
-          <CardContent className="pt-4">{trendData.length === 0 || topRegions.length === 0 ? (
+          <CardContent className="pt-4 px-3">{trendData.length === 0 || topRegions.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-[360px] text-muted-foreground gap-3 animate-fade-in">
               <TrendingUp className="h-10 w-10 opacity-20" />
               <p className="text-sm">暂无趋势数据</p>

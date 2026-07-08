@@ -269,13 +269,13 @@ export default function DateRecordsPanel({
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5">
             <CalendarDays className="h-4 w-4 text-primary" />
-            <span className="text-lg font-extrabold">数据记录</span>
+            <span className="text-base font-normal">数据记录</span>
           </div>
           {selectedDateInfo && (
             <div className="text-[10px] text-muted-foreground">
-              <span className="font-bold text-foreground tabular-nums">{selectedDateInfo.productCount}</span>品
+              <span className="font-normal text-foreground tabular-nums">{selectedDateInfo.productCount}</span>品
               <span className="mx-1">·</span>
-              <span className="font-bold text-foreground tabular-nums">{selectedDateInfo.totalOrders}</span>单
+              <span className="font-normal text-foreground tabular-nums">{selectedDateInfo.totalOrders}</span>单
             </div>
           )}
         </div>
@@ -401,10 +401,10 @@ export default function DateRecordsPanel({
                       : 'bg-muted/20 text-muted-foreground/30 cursor-default'
                   }`}
                 >
-                  <div className="text-[11px] font-bold">{i + 1}月</div>
+                  <div className="text-[10px] font-normal">{i + 1}月</div>
                   {hasData && (
                     <div className="text-[9px] text-muted-foreground tabular-nums">
-                      <span className="font-bold text-foreground">{total}</span>单
+                      <span className="font-normal text-foreground">{total}</span>单
                     </div>
                   )}
                 </button>
@@ -421,7 +421,7 @@ export default function DateRecordsPanel({
               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handlePrevMonth}>
                 <ChevronLeft className="h-3.5 w-3.5" />
               </Button>
-              <span className="text-xs font-bold">{monthLabel}</span>
+              <span className="text-[10px] font-normal">{monthLabel}</span>
               <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleNextMonth}>
                 <ChevronRight className="h-3.5 w-3.5" />
               </Button>
@@ -430,7 +430,7 @@ export default function DateRecordsPanel({
             {/* Weekday headers */}
             <div className="grid grid-cols-7 gap-0 mb-0.5">
               {WEEKDAYS.map((wd) => (
-                <div key={wd} className="text-center text-[9px] font-semibold text-muted-foreground py-0.5">
+                <div key={wd} className="text-center text-[9px] font-normal text-muted-foreground py-0.5">
                   {wd}
                 </div>
               ))}
@@ -452,11 +452,11 @@ export default function DateRecordsPanel({
                     disabled={!hasData}
                     className={`h-7 w-full flex items-center justify-center text-[11px] relative rounded transition-all ${
                       isSelected
-                        ? 'bg-primary text-primary-foreground font-bold'
+                        ? 'bg-primary text-primary-foreground font-normal'
                         : hasData && inRange
-                          ? 'bg-primary/12 font-semibold hover:bg-primary/20 cursor-pointer'
+                          ? 'bg-primary/20 text-foreground font-normal hover:bg-primary/30 cursor-pointer'
                           : hasData
-                            ? 'bg-primary/5 text-foreground/50 hover:bg-primary/12 cursor-pointer'
+                            ? 'bg-primary/10 text-foreground/80 hover:bg-primary/20 cursor-pointer'
                             : 'text-muted-foreground/25 cursor-default'
                     }`}
                   >
@@ -511,7 +511,7 @@ export default function DateRecordsPanel({
             {pageGroupedByMonth.map((group, groupIdx) => {
               return (
                 <div key={group.monthKey}>
-                  <div className="text-sm font-semibold text-muted-foreground px-2 py-1 sticky top-0 bg-background/95 backdrop-blur-sm z-10">
+                  <div className="text-[10px] font-normal text-muted-foreground px-2 py-1 sticky top-0 bg-background/95 backdrop-blur-sm z-10">
                     {group.monthLabel}
                   </div>
                   <div className="space-y-0.5">
@@ -530,19 +530,19 @@ export default function DateRecordsPanel({
                         <div
                           key={date}
                           onClick={() => onSelectDate(date)}
-                          className={`animate-list-in animate-delay-${idx % 7} group px-2 py-1 rounded-md border cursor-pointer transition-all duration-300 ${
+                          className={`animate-list-in animate-delay-${idx % 7} group px-2 py-1 mx-0.5 rounded-md border cursor-pointer transition-all duration-300 ${
                             isSelected
-                              ? 'border-primary bg-primary/8 ring-1 ring-primary/20 scale-[1.02]'
-                              : 'border-transparent hover:bg-muted/50 hover:border-border hover:scale-[1.01]'
+                              ? 'border-primary bg-primary/8 ring-1 ring-primary/20'
+                              : 'border-transparent hover:bg-muted/50 hover:border-border'
                           }`}
                         >
                           <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2 min-w-0">
-                              <span className="text-sm font-bold truncate">{formatDate(date)}</span>
-                              <span className="text-xs text-muted-foreground shrink-0">
-                                <span className="font-bold text-foreground tabular-nums">{productCount}</span>品
+                              <span className="text-[10px] font-normal truncate">{formatDate(date)}</span>
+                              <span className="text-[10px] text-muted-foreground shrink-0">
+                                <span className="font-normal text-foreground tabular-nums">{productCount}</span>品
                                 <span className="mx-0.5">·</span>
-                                <span className="font-bold text-foreground tabular-nums">{totalOrders}</span>单
+                                <span className="font-normal text-foreground tabular-nums">{totalOrders}</span>单
                               </span>
                             </div>
                             <div className="flex gap-0 opacity-0 group-hover:opacity-100 shrink-0">
@@ -621,7 +621,7 @@ export default function DateRecordsPanel({
                         key={page}
                         type="button"
                         onClick={() => setCurrentPage(page)}
-                        className={`h-8 w-8 flex items-center justify-center rounded-lg text-sm font-semibold transition-all duration-200 tabular-nums ${
+                        className={`h-8 w-8 flex items-center justify-center rounded-lg text-sm font-normal transition-all duration-200 tabular-nums ${
                           isActive
                             ? 'bg-primary text-primary-foreground shadow-md shadow-primary/25 scale-105'
                             : 'text-muted-foreground hover:bg-primary/6 hover:text-foreground'

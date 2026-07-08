@@ -166,15 +166,15 @@ export default function Home() {
     });
   }, []);
 
-  // Toggle between Dinglie Song and system font
+  // Toggle between PingFang SC and system fallback
   const toggleFont = useCallback(() => {
     setCustomFont((prev) => {
       const next = !prev;
       document.documentElement.style.setProperty(
         '--font-sans',
         next
-          ? '"Dinglie Song", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif'
-          : 'system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif'
+          ? '"PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
+          : 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
       );
       try { localStorage.setItem('customFont', String(next)); } catch {}
       return next;
@@ -190,7 +190,7 @@ export default function Home() {
         setCustomFont(false);
         document.documentElement.style.setProperty(
           '--font-sans',
-          'system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif'
+          'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif'
         );
       }
     } catch {}
@@ -500,11 +500,6 @@ export default function Home() {
         .tab-content-enter { animation: fadeIn 0.35s ease-out both; }
         .tab-indicator-active { position: relative; }
         .tab-indicator-active::after { content: ''; position: absolute; bottom: -1px; left: 10%; right: 10%; height: 2px; background: var(--primary); border-radius: 2px 2px 0 0; animation: scaleIn 0.25s ease-out; }
-        .scrollbar-visible { scrollbar-gutter: stable; }
-        .scrollbar-visible::-webkit-scrollbar { width: 6px; }
-        .scrollbar-visible::-webkit-scrollbar-track { background: transparent; }
-        .scrollbar-visible::-webkit-scrollbar-thumb { background: rgba(148,163,184,0.3); border-radius: 3px; }
-        .scrollbar-visible::-webkit-scrollbar-thumb:hover { background: rgba(148,163,184,0.5); }
         .pulse-glow { animation: pulseGlow 2s ease-in-out infinite; }
         .loading-shimmer { background: linear-gradient(90deg, #e8f5e9 25%, #c8e6c9 50%, #e8f5e9 75%); background-size: 200% 100%; animation: shimmer 2s infinite; }
         .card-lift { transition: all 0.35s cubic-bezier(0.16,1,0.3,1); }
@@ -525,7 +520,7 @@ export default function Home() {
       `}</style>
 
       <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-primary/10 animate-fade-in">
-        <div className="max-w-[1440px] mx-auto px-3 sm:px-5 py-2 flex items-center justify-between gap-3">
+        <div className="w-full px-2 py-2 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 animate-fade-in-left">
             <div className="bg-gradient-to-br from-primary to-emerald-600 text-primary-foreground p-2.5 rounded-xl shadow-lg shadow-primary/20 pulse-glow">
               <BarChart3 className="h-6 w-6" />
@@ -562,7 +557,7 @@ export default function Home() {
           )}
           <div className="flex items-center gap-2 animate-fade-in animate-delay-2">
             <Button onClick={toggleFont} variant="outline" size="sm" title="切换字体">
-              <Type className="h-4 w-4 mr-1.5" />{customFont ? '丁列宋体' : '系统字体'}
+              <Type className="h-4 w-4 mr-1.5" />{customFont ? '苹方' : '系统默认'}
             </Button>
             <Button onClick={() => setExcelImportOpen(true)} variant="outline" size="sm" className="shrink-0">
               <FileSpreadsheet className="h-4 w-4 mr-1.5" />导入Excel
@@ -590,7 +585,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-[1440px] mx-auto px-3 sm:px-4 py-3 flex-1">
+      <main className="max-w-[100%] mx-auto px-4 py-3 flex-1 min-h-[calc(100vh-48px-50px)] overflow-x-hidden">
         {totalDays === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-muted-foreground animate-scale-in">
             <FileJson className="h-16 w-16 mb-4 opacity-30" />
@@ -599,8 +594,8 @@ export default function Home() {
             <Button onClick={() => setImportOpen(true)} size="lg"><Plus className="h-4 w-4 mr-1.5" />导入第一份数据</Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 lg:h-[calc(100vh-60px)] animate-fade-in-up">
-            <div className="lg:col-span-3 lg:overflow-y-auto lg:sticky lg:top-[52px] lg:h-[calc(100vh-60px)] lg:pr-1 animate-fade-in-left">
+          <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-2 lg:h-[calc(100vh-60px)] animate-fade-in-up">
+            <div className="lg:overflow-y-auto lg:sticky lg:top-[52px] lg:h-[calc(100vh-60px)] animate-fade-in-left">
               <DateRecordsPanel
                 records={records}
                 selectedDate={selectedDate}
@@ -616,7 +611,7 @@ export default function Home() {
               />
             </div>
 
-            <div className="lg:col-span-9 lg:flex lg:flex-col lg:h-[calc(100vh-60px)] lg:pl-1 animate-scale-in animate-delay-1">
+            <div className="lg:flex lg:flex-col lg:h-[calc(100vh-60px)] pr-4 animate-scale-in animate-delay-1">
               <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full flex flex-col lg:flex-1 lg:overflow-hidden">
                 <TabsList className="mb-3 shrink-0">
                   {tabs.map(({ value, icon: Icon, label }) => (

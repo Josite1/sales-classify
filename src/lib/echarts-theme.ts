@@ -22,12 +22,12 @@ export function registerBrutalTheme(echarts: any): void {
     color: TROPICAL_COLORS,
     backgroundColor: 'transparent',
     textStyle: {
-      fontFamily: '"Dinglie Song", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+      fontFamily: '"PingFang SC", system-ui, -apple-system, "PingFang SC", "PingFang SC", "Microsoft YaHei", sans-serif',
       fontSize: 13,
     },
     title: {
       textStyle: {
-        fontFamily: '"Dinglie Song", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+        fontFamily: '"PingFang SC", system-ui, -apple-system, "PingFang SC", "PingFang SC", "Microsoft YaHei", sans-serif',
         fontSize: 15,
         fontWeight: 700,
         color: '#1a2e1a',
@@ -35,13 +35,13 @@ export function registerBrutalTheme(echarts: any): void {
     },
     legend: {
       textStyle: {
-        fontFamily: '"Dinglie Song", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+        fontFamily: '"PingFang SC", system-ui, -apple-system, "PingFang SC", "PingFang SC", "Microsoft YaHei", sans-serif',
         fontSize: 12,
         fontWeight: 600,
         color: '#5a7a5a',
       },
       pageTextStyle: {
-        fontFamily: '"Dinglie Song", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+        fontFamily: '"PingFang SC", system-ui, -apple-system, "PingFang SC", "PingFang SC", "Microsoft YaHei", sans-serif',
       },
     },
     categoryAxis: {
@@ -49,7 +49,7 @@ export function registerBrutalTheme(echarts: any): void {
       axisTick: { lineStyle: { color: '#d4e0d0' } },
       splitLine: { show: false },
       axisLabel: {
-        fontFamily: '"Dinglie Song", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+        fontFamily: '"PingFang SC", system-ui, -apple-system, "PingFang SC", "PingFang SC", "Microsoft YaHei", sans-serif',
         fontSize: 12,
         fontWeight: 500,
         color: '#5a7a5a',
@@ -61,7 +61,7 @@ export function registerBrutalTheme(echarts: any): void {
         lineStyle: { color: '#e8f5e9', type: 'dashed', width: 1 },
       },
       axisLabel: {
-        fontFamily: '"Dinglie Song", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+        fontFamily: '"PingFang SC", system-ui, -apple-system, "PingFang SC", "PingFang SC", "Microsoft YaHei", sans-serif',
         fontSize: 12,
         fontWeight: 500,
         color: '#7a9a7a',
@@ -72,7 +72,7 @@ export function registerBrutalTheme(echarts: any): void {
       borderColor: '#10b98140',
       borderWidth: 1,
       textStyle: {
-        fontFamily: '"Dinglie Song", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+        fontFamily: '"PingFang SC", system-ui, -apple-system, "PingFang SC", "PingFang SC", "Microsoft YaHei", sans-serif',
         fontSize: 13,
         color: '#1a2e1a',
       },
@@ -116,7 +116,7 @@ export function getBrutalTooltip(): any {
     borderColor: '#10b98140',
     borderWidth: 1,
     textStyle: {
-      fontFamily: '"Dinglie Song", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+      fontFamily: '"PingFang SC", system-ui, -apple-system, "PingFang SC", "PingFang SC", "Microsoft YaHei", sans-serif',
       color: '#1a2e1a',
       fontSize: 13,
     },
@@ -132,7 +132,7 @@ export function getBrutalTooltipDark(): any {
     borderColor: '#2d4a2d',
     borderWidth: 1,
     textStyle: {
-      fontFamily: '"Dinglie Song", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+      fontFamily: '"PingFang SC", system-ui, -apple-system, "PingFang SC", "PingFang SC", "Microsoft YaHei", sans-serif',
       color: '#dcecdc',
       fontSize: 13,
     },
@@ -155,7 +155,7 @@ export function getBrutalXAxis(data?: string[]): any {
     axisTick: { lineStyle: { color: '#d4e0d0' } },
     splitLine: { show: false },
     axisLabel: {
-      fontFamily: '"Dinglie Song", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+      fontFamily: '"PingFang SC", system-ui, -apple-system, "PingFang SC", "PingFang SC", "Microsoft YaHei", sans-serif',
       fontSize: 12,
       fontWeight: 500,
       color: '#5a7a5a',
@@ -168,7 +168,7 @@ export function getBrutalYAxis(name?: string): any {
     type: 'value',
     name,
     nameTextStyle: {
-      fontFamily: '"Dinglie Song", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+      fontFamily: '"PingFang SC", system-ui, -apple-system, "PingFang SC", "PingFang SC", "Microsoft YaHei", sans-serif',
       fontSize: 12,
       fontWeight: 600,
       color: '#7a9a7a',
@@ -178,7 +178,7 @@ export function getBrutalYAxis(name?: string): any {
       lineStyle: { color: '#e8f5e9', type: 'dashed', width: 1 },
     },
     axisLabel: {
-      fontFamily: '"Dinglie Song", system-ui, -apple-system, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif',
+      fontFamily: '"PingFang SC", system-ui, -apple-system, "PingFang SC", "PingFang SC", "Microsoft YaHei", sans-serif',
       fontSize: 12,
       fontWeight: 500,
       color: '#7a9a7a',

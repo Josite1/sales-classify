@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import { useRef, useEffect, useState, useMemo } from 'react';
 import { registerBrutalTheme, getBrutalTooltip, BRUTAL_COLORS } from '@/lib/echarts-theme';
@@ -335,13 +335,13 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
 
       <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
         {loading ? (
-          <>{[0, 1, 2].map(i => (<div key={i} className="rounded-xl border border-border/30 p-5 shadow-sm"><div className="skeleton" style={{ height: 14, width: '60%', marginBottom: 8 }} /><div className="skeleton" style={{ height: 28, width: '40%', marginTop: 12 }} /></div>))}</>
+          <>{[0, 1, 2].map(i => (<div key={i} className="rounded-xl border border-border/30 p-4 shadow-sm"><div className="skeleton" style={{ height: 14, width: '60%', marginBottom: 8 }} /><div className="skeleton" style={{ height: 28, width: '40%', marginTop: 12 }} /></div>))}</>
         ) : (
           <>
-            <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 p-5 shadow-sm hover:shadow-md transition-all duration-300 pulse-on-update animate-fade-in-up animate-delay-1"><div className="text-sm text-muted-foreground font-semibold mb-2">覆盖店铺</div><AnimatedValue value={chartData.length} className="text-3xl font-black text-primary tabular-nums" /></div>
-            <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-5 shadow-sm hover:shadow-md transition-all duration-300 pulse-on-update animate-fade-in-up animate-delay-2">
+            <div className="rounded-xl border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 p-4 shadow-sm hover:shadow-md transition-all duration-300 pulse-on-update animate-fade-in-up animate-delay-1"><div className="text-xs text-muted-foreground font-normal mb-1.5">覆盖店铺</div><AnimatedValue value={chartData.length} className="text-2xl font-normal text-primary tabular-nums" /></div>
+            <div className="rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-500/10 to-emerald-500/5 p-4 shadow-sm hover:shadow-md transition-all duration-300 pulse-on-update animate-fade-in-up animate-delay-2">
               <div className="flex items-center gap-1.5 mb-2">
-                <span className="text-sm text-muted-foreground font-semibold">售后总数</span>
+                <span className="text-xs text-muted-foreground font-normal">售后总数</span>
                 <select
                   value={flagType}
                   onChange={e => setFlagType(e.target.value)}
@@ -357,8 +357,8 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
                   <option value="总数">总数</option>
                 </select>
               </div>
-              <AnimatedValue value={aggregatedData?.total || 0} className="text-3xl font-black text-emerald-600 tabular-nums" /></div>
-            <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-amber-500/5 p-5 shadow-sm hover:shadow-md transition-all duration-300 pulse-on-update animate-fade-in-up animate-delay-3"><div className="text-sm text-muted-foreground font-semibold mb-2">Top 店铺</div><span className="text-3xl font-black text-amber-600 tabular-nums line-clamp-1" title={topShops[0]}>{topShops[0] || '-'}</span></div>
+              <AnimatedValue value={aggregatedData?.total || 0} className="text-2xl font-normal text-emerald-600 tabular-nums" /></div>
+            <div className="rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-500/10 to-amber-500/5 p-4 shadow-sm hover:shadow-md transition-all duration-300 pulse-on-update animate-fade-in-up animate-delay-3"><div className="text-xs text-muted-foreground font-normal mb-1.5">Top 店铺</div><span className="text-2xl font-normal text-amber-600 tabular-nums line-clamp-1" title={topShops[0]}>{topShops[0] || '-'}</span></div>
           </>
         )}
       </div>
@@ -371,7 +371,7 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
               <div className="flex gap-1">{CHART_OPTIONS.map(opt => (<Button key={opt.value} variant={chartType === opt.value ? 'default' : 'outline'} size="sm" className={`h-7 px-3 gap-1.5 text-xs transition-all duration-200 ${chartType === opt.value ? 'shadow-sm' : ''}`} onClick={() => { if (chartType !== opt.value) { setChartTransitioning(true); setTimeout(() => { setChartType(opt.value); setTimeout(() => setChartTransitioning(false), 50); }, 200); } }}>{opt.icon}{opt.label}</Button>))}</div>
             </div>
           </CardHeader>
-          <CardContent className="pt-4">
+          <CardContent className="pt-4 px-3">
             {loading ? (
               <div className="skeleton skeleton-chart" style={{ borderRadius: 12 }} />
             ) : chartData.length === 0 ? (
@@ -399,7 +399,7 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
               </Popover>
             </div>
           </CardHeader>
-          <CardContent className="pt-4">{trendData.length === 0 || topShops.length === 0 ? (<div className="flex flex-col items-center justify-center h-[360px] text-muted-foreground gap-3 animate-fade-in"><TrendingUp className="h-10 w-10 opacity-20" /><p className="text-sm">暂无趋势数据</p></div>) : (<div ref={trendChartRef} className="w-full h-[420px]" />)}</CardContent>
+          <CardContent className="pt-4 px-3">{trendData.length === 0 || topShops.length === 0 ? (<div className="flex flex-col items-center justify-center h-[360px] text-muted-foreground gap-3 animate-fade-in"><TrendingUp className="h-10 w-10 opacity-20" /><p className="text-sm">暂无趋势数据</p></div>) : (<div ref={trendChartRef} className="w-full h-[420px]" />)}</CardContent>
         </Card>
       )}
     </div>

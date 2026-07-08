@@ -106,10 +106,10 @@ function SharedDashboard({ sharedData }: { sharedData: SharedData }) {
         </div>
       </header>
 
-      <main className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <main className="max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-6">
           {/* Left panel - date selector */}
-          <div className="lg:col-span-3 lg:sticky lg:top-[73px] lg:h-[calc(100vh-140px)] lg:overflow-y-auto lg:pr-2 scrollbar-thin">
+          <div className="lg:w-[280px] lg:sticky lg:top-[73px] lg:h-[calc(100vh-140px)] lg:overflow-y-auto lg:pr-2 scrollbar-visible lg:shrink-0">
             <Card>
               <CardContent className="p-3">
                 <div className="flex items-center justify-between mb-3">
@@ -170,7 +170,7 @@ function SharedDashboard({ sharedData }: { sharedData: SharedData }) {
           </div>
 
           {/* Right panel - dashboard */}
-          <div className="lg:col-span-9">
+          <div>
             <Tabs defaultValue="overview" className="w-full">
               <TabsList className="mb-4">
                 <TabsTrigger value="overview" className="gap-1.5">
