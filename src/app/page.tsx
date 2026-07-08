@@ -585,7 +585,7 @@ export default function Home() {
         </div>
       </header>
 
-      <main className="max-w-[100%] mx-auto px-4 py-3 flex-1 min-h-[calc(100vh-48px-50px)] overflow-x-hidden">
+      <main className="max-w-full px-[5vw] py-3 flex-1 min-h-[calc(100vh-48px-50px)]">
         {totalDays === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-muted-foreground animate-scale-in">
             <FileJson className="h-16 w-16 mb-4 opacity-30" />
@@ -594,7 +594,7 @@ export default function Home() {
             <Button onClick={() => setImportOpen(true)} size="lg"><Plus className="h-4 w-4 mr-1.5" />导入第一份数据</Button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 lg:grid-cols-[280px_1fr] gap-2 lg:h-[calc(100vh-60px)] animate-fade-in-up">
+          <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-2 lg:h-[calc(100vh-60px)] animate-fade-in-up">
             <div className="lg:overflow-y-auto lg:sticky lg:top-[52px] lg:h-[calc(100vh-60px)] animate-fade-in-left">
               <DateRecordsPanel
                 records={records}
@@ -611,7 +611,7 @@ export default function Home() {
               />
             </div>
 
-            <div className="lg:flex lg:flex-col lg:h-[calc(100vh-60px)] pr-4 animate-scale-in animate-delay-1">
+            <div className="lg:flex lg:flex-col lg:h-[calc(100vh-60px)] pr-4 max-w-[70vw] animate-scale-in animate-delay-1">
               <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full flex flex-col lg:flex-1 lg:overflow-hidden">
                 <TabsList className="mb-3 shrink-0">
                   {tabs.map(({ value, icon: Icon, label }) => (

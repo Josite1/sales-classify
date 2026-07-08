@@ -287,6 +287,7 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
     for (const [k, v] of Object.entries(filteredQtyStats)) { if (v > topV) { topV = v; top = k; } }
     return top;
   }, [filteredQtyStats]);
+  const filteredTopQtyValue = useMemo(() => filteredTopQty !== '-' ? filteredQtyStats[filteredTopQty] || 0 : 0, [filteredQtyStats, filteredTopQty]);
 
   const isHandGraspCake = selectedProduct && ['手抓饼', '葱油饼'].some(keyword => selectedProduct.includes(keyword)) || false;
   const unitLabel = isHandGraspCake ? '片' : '袋';
@@ -541,7 +542,7 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
     { label: '产品名称', value: displayName, color: '#14b8a6', isText: true },
     { label: '售后总数', value: stats?.total || 0, color: '#3b82f6' },
     { label: '全局占比', value: `${ratio}%`, color: '#8b5cf6' },
-    { label: `${qtyFlagType.replace('旗子', '旗')}峰值`, value: filteredTopQty !== '-' ? `${filteredTopQty}${unitLabel} (${filteredQtyTotal}单)` : '-', color: '#f59e0b', isText: true },
+    { label: `${qtyFlagType.replace('旗子', '旗')}峰值`, value: filteredTopQty !== '-' ? `${filteredTopQty}${unitLabel} (${filteredTopQtyValue}单)` : '-', color: '#f59e0b', isText: true },
   ];
   const timeModeLabels: Record<TimeMode, string> = { day: '日', week: '周', month: '月', custom: '自定义' };
 

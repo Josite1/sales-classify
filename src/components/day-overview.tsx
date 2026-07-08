@@ -876,7 +876,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
         </Card>
       ) : (
         <>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-5">
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {cards.map((card, idx) => {
               const Icon = card.icon;
               const baseCardClass = `
@@ -886,12 +886,12 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                 group
               `;
               const iconContainerClass = `
-                p-2.5 rounded-xl stat-icon-glow
+                p-2 rounded-lg stat-icon-glow
                 transition-all duration-300
                 group-hover:scale-110 group-hover:shadow-md
               `;
               const valueClass = `
-                text-2xl font-normal tabular-nums tracking-tight
+                text-xl font-normal tabular-nums tracking-tight
                 animate-number-pop
               `;
               const trendBaseClass = "flex items-center gap-1 mt-1 animate-fade-in-up";
@@ -899,20 +899,20 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
               if (card.isTopReason) {
                 return (
                   <Card key={card.label} className={baseCardClass} style={{ borderLeft: `4px solid ${card.accentColor}`, backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)` }}>
-                    <CardContent className="pt-6 pb-6">
+                    <CardContent className="pt-4 pb-4">
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-muted-foreground font-normal">{card.label}</p>
                         <div className={iconContainerClass} style={{ backgroundColor: card.iconBg }}>
-                          <Icon className="h-5 w-5" style={{ color: card.accentColor }} />
+                          <Icon className="h-4 w-4" style={{ color: card.accentColor }} />
                         </div>
                       </div>
                       {summary.topReasons.length > 0 ? (
-                        <div className="mt-4">
+                        <div className="mt-2">
                           <p className={`${valueClass} truncate`} style={{ color: card.accentColor }} title={summary.topReasons[0][0]}>
                             {summary.topReasons[0][0]}
                           </p>
                           <div className="flex items-center gap-2 mt-2">
-                            <Badge variant="secondary" className="text-sm font-mono" style={{ backgroundColor: card.iconBg, color: card.accentColor, borderColor: 'transparent' }}>
+                            <Badge variant="secondary" className="text-xs font-normal" style={{ backgroundColor: card.iconBg, color: card.accentColor, borderColor: 'transparent' }}>
                               {summary.topReasons[0][1]} 单
                             </Badge>
                           </div>
@@ -929,19 +929,19 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
               if (card.clickable) {
                 return (
                   <Card key={card.label} className={`${baseCardClass} cursor-pointer hover:ring-1 hover:ring-primary/30`} style={{ borderLeft: `4px solid ${card.accentColor}`, backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)` }} onClick={() => setProductDetailOpen(true)}>
-                    <CardContent className="pt-6 pb-6">
+                    <CardContent className="pt-4 pb-4">
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-muted-foreground font-normal">{card.label}</p>
                         <div className={iconContainerClass} style={{ backgroundColor: card.iconBg }}>
-                          <Icon className="h-5 w-5" style={{ color: card.accentColor }} />
+                          <Icon className="h-4 w-4" style={{ color: card.accentColor }} />
                         </div>
                       </div>
-                      <div className="mt-4">
+                      <div className="mt-2">
                         <p className={valueClass} style={{ color: card.accentColor }}>{card.value}</p>
                         {productChange && (
-                          <div className="flex items-center gap-2 mt-1.5 text-base font-semibold">
-                            {productChange.added.length > 0 && <span className="text-emerald-600 font-semibold flex items-center gap-0.5"><TrendingUp className="h-3.5 w-3.5" />+{productChange.added.length}</span>}
-                            {productChange.removed.length > 0 && <span className="text-destructive font-semibold flex items-center gap-0.5"><TrendingDown className="h-3.5 w-3.5" />-{productChange.removed.length}</span>}
+                          <div className="flex items-center gap-2 mt-1.5 text-xs font-normal">
+                            {productChange.added.length > 0 && <span className="text-emerald-600 font-normal flex items-center gap-0.5"><TrendingUp className="h-3.5 w-3.5" />+{productChange.added.length}</span>}
+                            {productChange.removed.length > 0 && <span className="text-destructive font-normal flex items-center gap-0.5"><TrendingDown className="h-3.5 w-3.5" />-{productChange.removed.length}</span>}
                             {productChange.added.length === 0 && productChange.removed.length === 0 && <span className="text-muted-foreground">持平</span>}
                           </div>
                         )}
@@ -954,23 +954,23 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
 
               return (
                 <Card key={card.label} className={baseCardClass} style={{ borderLeft: `4px solid ${card.accentColor}`, backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)` }}>
-                  <CardContent className="pt-6 pb-6">
+                  <CardContent className="pt-4 pb-4">
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-muted-foreground font-normal">{card.label}</p>
                       <div className={iconContainerClass} style={{ backgroundColor: card.iconBg }}>
-                        <Icon className="h-5 w-5" style={{ color: card.accentColor }} />
+                        <Icon className="h-4 w-4" style={{ color: card.accentColor }} />
                       </div>
                     </div>
-                    <div className="mt-4">
+                    <div className="mt-2">
                       <p className={valueClass} style={{ color: card.accentColor }}>{card.value}</p>
                       {card.change !== null && (
                         <div className={trendBaseClass}>
                           {(card.isRedFlag ? card.changeUp : card.changeUp) ? (
-                            <TrendingUp className="h-4 w-4 text-destructive" />
+                            <TrendingUp className="h-3 w-3 text-destructive" />
                           ) : (
-                            <TrendingDown className="h-4 w-4 text-emerald-500" />
+                            <TrendingDown className="h-3 w-3 text-emerald-500" />
                           )}
-                          <span className={`text-base font-semibold tabular-nums ${(card.isRedFlag ? card.changeUp : card.changeUp) ? 'text-destructive' : 'text-emerald-500'}`}>
+                          <span className={`text-xs font-normal tabular-nums ${(card.isRedFlag ? card.changeUp : card.changeUp) ? 'text-destructive' : 'text-emerald-500'}`}>
                             {card.changePercent !== undefined
                               ? `${card.changeUp ? '+' : ''}${card.changePercent}%`
                               : `${card.changeUp ? '+' : ''}${card.change}`}
