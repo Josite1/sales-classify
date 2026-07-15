@@ -1,0 +1,9 @@
+{
+  "rewrites": [
+    { "source": "/api/records/:path*", "destination": "/api/index" },
+    { "source": "/api/aliases/:path*", "destination": "/api/index" },
+    { "source": "/api/excel/:path*", "destination": "/api/index" },
+    { "source": "/api/compute/:path*", "destination": "/api/index" },
+    { "source": "/api/chat/:path*", "destination": "/api/index" }
+  ]
+}
