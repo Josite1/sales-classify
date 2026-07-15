@@ -2,8 +2,6 @@
 
 import { useState, useCallback } from 'react';
 import { safeFetch } from '@/lib/fetch-utils';
-import { fetchFromCloud } from '@/lib/records-service';
-import { getAccessToken } from '@/lib/auth';
 import {
   Dialog,
   DialogContent,
@@ -59,14 +57,11 @@ export function ExcelImportDialog({ open, onOpenChange, onImported }: ExcelImpor
         setError('处理结果不正确');
         return;
       }
-      // 新增日期追加到完整数据，但只同步新日期（增量同步，避免请求体过大）
-      const token = await getAccessToken();
-      const cloudRecords = token ? await fetchFromCloud(token) : {};
+      // 增量同步：只上传新日期
       const newRecord = { date, data: data.data as Record<string, ProductData>, importedAt: Date.now() };
-      const records: AllRecords = { ...cloudRecords, [date]: newRecord };
       const newRecordsOnly: AllRecords = { [date]: newRecord };
       setSalesFile(null);
-      onImported(records, newRecordsOnly);
+      onImported(newRecordsOnly, newRecordsOnly);
       onOpenChange(false);
     } catch (err) {
       setError('Excel处理异常: ' + (err as Error).message);

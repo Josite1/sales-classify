@@ -366,7 +366,7 @@ export default function Home() {
   useEffect(() => {
     if (!mounted || !isAuthenticated || authLoading || !initialSyncDone.current) return;
 
-    const POLL_INTERVAL = 30000; // 30秒轮询
+    const POLL_INTERVAL = 60000; // 60秒轮询
 
     const pollCloud = async () => {
       if (pollingRef.current || syncingCloudRef.current) return;
@@ -416,15 +416,15 @@ export default function Home() {
   }, [mounted, authLoading, isAuthenticated, router]);
 
   const handleImported = useCallback((newRecords: AllRecords, newRecordsOnly?: AllRecords) => {
-    setRecords(newRecords);
-    const dates = Object.keys(newRecords).sort().reverse();
-    if (dates.length > 0) setSelectedDate(dates[0]);
-    // 增量同步：只上传新增日期，避免全量数据超出请求体限制
+    setRecords(prev => ({ ...prev, ...newRecords }));
     const toSync = newRecordsOnly || newRecords;
-    // 记录待确认的日期，防止轮询在同步完成前覆盖
     if (newRecordsOnly) {
       pendingSyncDate.current = Object.keys(newRecordsOnly)[0] || null;
     }
+    // 选中最新导入的日期
+    const importedDates = Object.keys(newRecords);
+    if (importedDates.length > 0) setSelectedDate(importedDates.sort().reverse()[0]);
+    // 增量同步：只上传新增日期
     syncingCloudRef.current = true;
     (async () => {
       try { const token = await getAccessToken(); if (token) await syncToCloud(toSync, token, false); }
