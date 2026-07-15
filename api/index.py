@@ -1,7 +1,6 @@
 """
 Vercel serverless entry point for the FastAPI backend.
-Routes all /api/records, /api/aliases, /api/excel, /api/compute requests
-through the same FastAPI app used on Railway.
+Uses Mangum as the ASGI adapter for AWS Lambda / Vercel serverless.
 """
 
 import sys
@@ -11,5 +10,9 @@ import os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'backend'))
 
 from main import app  # noqa: E402
+from mangum import Mangum  # noqa: E402
 
-# Vercel looks for the `app` object
+# Mangum adapts FastAPI/Starlette ASGI apps to the AWS Lambda / Vercel event format.
+# It correctly preserves the original request path from the Vercel event payload,
+# so FastAPI routes match regardless of Vercel internal rewrites.
+handler = Mangum(app, lifespan="off")
