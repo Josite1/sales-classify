@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Inspector } from 'react-dev-inspector';
+import { Analytics } from '@vercel/analytics/next';
 import { SupabaseConfigProvider } from '@/lib/supabase-config-inject';
 import './globals.css';
 
@@ -22,6 +23,7 @@ export default function RootLayout({
           {isDev && <Inspector />}
           {children}
         </SupabaseConfigProvider>
+        <Analytics />
       </body>
     </html>
   );
