@@ -458,6 +458,18 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
 
   const isAggregateSearchActive = debouncedSearch.length > 0;
 
+  // 按日期范围预过滤 records —— 只把范围内的日期发给后端，大幅减少网络传输
+  const filteredRecords = useMemo((): AllRecords => {
+    if (!dateRange) return records;
+    const filtered: AllRecords = {};
+    for (const [dateStr, record] of Object.entries(records)) {
+      if (dateStr >= dateRange.start && dateStr <= dateRange.end) {
+        filtered[dateStr] = record;
+      }
+    }
+    return filtered;
+  }, [records, dateRange]);
+
   // Fetch filtered summary from backend API
   useEffect(() => {
     if (!dateRange || Object.keys(records).length === 0) {
@@ -469,7 +481,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
     setSummaryLoading(true);
     (async () => {
       try {
-        const result = await apiComputeFilteredSummary(records, dateRange.start, dateRange.end, selectedProducts, selectedShops);
+        const result = await apiComputeFilteredSummary(filteredRecords, dateRange.start, dateRange.end, selectedProducts, selectedShops);
         if (!cancelled) {
           setSummary(result.summary);
         }
