@@ -12,25 +12,16 @@ const nextConfig: NextConfig = {
   experimental: {
     optimizePackageImports: [],
   },
-  webpack: (config) => {
-    // 禁止 Webpack 把 echarts 拆成异步 chunk，消除 Vercel 部署后 chunk 404
-    const plugins = config.plugins || [];
-    config.optimization.splitChunks = {
-      ...config.optimization.splitChunks,
-      cacheGroups: {
-        ...(config.optimization.splitChunks as any)?.cacheGroups,
-        default: false,
-        vendors: false,
-        echarts: {
-          test: /[\\/]node_modules[\\/](echarts|zrender)[\\/]/,
-          name: 'echarts',
-          chunks: 'all',
-          priority: 30,
-          enforce: true,
-          reuseExistingChunk: false,
-        },
-      },
-    };
+  webpack: (config, { isServer }) => {
+    if (!isServer) {
+      // 完全禁止客户端 chunk 拆分，消除 Vercel 部署后 chunk 404
+      config.optimization.splitChunks = {
+        ...config.optimization.splitChunks,
+        maxInitialRequests: Infinity,
+        maxAsyncRequests: Infinity,
+        minSize: 100000000, // 100MB — 实际不会拆分任何东西
+      };
+    }
     return config;
   },
   async rewrites() {
