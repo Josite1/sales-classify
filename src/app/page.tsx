@@ -49,6 +49,8 @@ import {
 } from '@/components/ui/alert-dialog';
 
 import { DayOverview } from '@/components/day-overview';
+import { ProductAnalysis } from '@/components/product-analysis';
+import { RegionDistribution } from '@/components/region-distribution';
 import { WeeklyTrendChart } from '@/components/weekly-trend-chart';
 import { ShopDistribution } from '@/components/shop-distribution';
 
@@ -60,12 +62,6 @@ const DataImportDialog = dynamic(
 );
 const ChangePasswordDialog = dynamic(
   () => import('@/components/change-password-dialog').then(m => m.ChangePasswordDialog), { ssr: false }
-);
-const ProductAnalysis = dynamic(
-  () => import('@/components/product-analysis').then(m => m.ProductAnalysis), { ssr: false }
-);
-const RegionDistribution = dynamic(
-  () => import('@/components/region-distribution').then(m => m.RegionDistribution), { ssr: false }
 );
 
 const SCROLL_KEY = 'dashboard_scroll';
