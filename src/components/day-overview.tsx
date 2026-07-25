@@ -349,9 +349,10 @@ export function DayOverview({ records, selectedDate, active = true }: DayOvervie
   const [allShops, setAllShops] = useState<string[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(false);
 
-  useEffect(() => {
-    setAliases(loadProductAliases());
-  }, []);
+  // 内存缓存：同日期+同筛选条件直接返回缓存，二次访问零延迟
+  const summaryCacheRef = useRef<Map<string, any>>(new Map());
+  // records 变化（导入/删除/同步）时清空整个缓存
+  useEffect(() => { summaryCacheRef.current.clear(); }, [records]);
 
   // 防抖
   useEffect(() => {
@@ -390,7 +391,7 @@ export function DayOverview({ records, selectedDate, active = true }: DayOvervie
       default:
         return null;
     }
-  }, [selectedDate, timeMode, customStart, customEnd]);
+  }, [active, selectedDate, timeMode, customStart, customEnd]);
 
   // Fetch options from backend API
   useEffect(() => {
@@ -479,11 +480,18 @@ export function DayOverview({ records, selectedDate, active = true }: DayOvervie
       return;
     }
     let cancelled = false;
+    const cacheKey = `${dateRange.start}|${dateRange.end}|${[...selectedProducts].sort().join(',')}|${[...selectedShops].sort().join(',')}`;
+    const cached = summaryCacheRef.current.get(cacheKey);
+    if (cached !== undefined) {
+      setSummary(cached);
+      return;
+    }
     setSummaryLoading(true);
     (async () => {
       try {
         const result = await apiComputeFilteredSummary(filteredRecords, dateRange.start, dateRange.end, selectedProducts, selectedShops);
         if (!cancelled) {
+          summaryCacheRef.current.set(cacheKey, result.summary);
           setSummary(result.summary);
         }
       } catch (e) {
@@ -876,11 +884,17 @@ export function DayOverview({ records, selectedDate, active = true }: DayOvervie
 
       {/* 指标卡片 */}
       {summaryLoading && !summary ? (
-        <Card className="animate-fade-in-up">
-          <CardContent className="flex items-center justify-center py-16 text-muted-foreground">
-            <p className="text-sm">计算中...</p>
-          </CardContent>
-        </Card>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="rounded-xl border border-primary/10 bg-gradient-to-br from-muted/60 to-muted/30 animate-pulse" style={{ animationDelay: `${i * 100}ms` }}>
+              <div className="p-4 space-y-3">
+                <div className="h-3 w-16 rounded-full bg-muted-foreground/20" />
+                <div className="h-7 w-20 rounded-lg bg-muted-foreground/15" />
+                <div className="h-3 w-24 rounded-full bg-muted-foreground/10" />
+              </div>
+            </div>
+          ))}
+        </div>
       ) : !summary ? (
         <Card className="animate-fade-in-up">
           <CardContent className="flex items-center justify-center py-16 text-muted-foreground">

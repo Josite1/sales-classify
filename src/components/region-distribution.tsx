@@ -202,7 +202,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases, acti
       case 'month': return getMonthRange(selectedDate);
       case 'custom': return customStart && customEnd ? { start: customStart, end: customEnd } : { start: '', end: '' };
     }
-  }, [selectedDate, timePeriod, customStart, customEnd]);
+  }, [active, selectedDate, timePeriod, customStart, customEnd]);
 
   const filteredDates = useMemo(() => {
     if (!dateRange.start || !dateRange.end) return [];

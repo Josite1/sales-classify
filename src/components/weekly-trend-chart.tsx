@@ -169,6 +169,10 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases, active
     setAliases(initialAliases || loadProductAliases());
   }, [initialAliases]);
 
+  // 内存缓存：同日期+同筛选直接返回缓存，二次切换零延迟
+  const trendCacheRef = useRef<Map<string, any>>(new Map());
+  useEffect(() => { trendCacheRef.current.clear(); }, [records]);
+
   // 防抖
   useEffect(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -207,7 +211,7 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases, active
       case 'custom': return customStart && customEnd ? { start: customStart, end: customEnd } : null;
       default: return null;
     }
-  }, [selectedDate, timeMode, customStart, customEnd]);
+  }, [active, selectedDate, timeMode, customStart, customEnd]);
 
   // Fetch options from backend
   useEffect(() => {
@@ -254,12 +258,21 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases, active
       setTopReasons([]);
       return;
     }
+    const cacheKey = `${dateRange.start}|${dateRange.end}|${timeMode}|${[...selectedProducts].sort().join(',')}|${[...selectedShops].sort().join(',')}`;
+    const cached = trendCacheRef.current.get(cacheKey);
+    if (cached !== undefined) {
+      setDailyData(cached.dailyData);
+      setTopProducts(cached.topProducts);
+      setTopReasons(cached.topReasons);
+      return;
+    }
     let cancelled = false;
     setDataLoading(true);
     (async () => {
       try {
         const result = await apiComputeTrendData(records, dateRange!.start, dateRange!.end, timeMode, selectedProducts, selectedShops, aliases);
         if (!cancelled) {
+          trendCacheRef.current.set(cacheKey, { dailyData: result.dailyData, topProducts: result.topProducts, topReasons: result.topReasons });
           setDailyData(result.dailyData);
           setTopProducts(result.topProducts);
           setTopReasons(result.topReasons);
@@ -408,9 +421,14 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases, active
         </Card>
       </div>
 
-      {!dateRange || dailyData.length === 0 ? (
-        <Card className="animate-fade-in-up"><CardContent className="flex items-center justify-center py-16 text-muted-foreground"><p className="text-sm">{dataLoading ? '计算中...' : '当前筛选条件下暂无数据'}</p></CardContent></Card>
-      ) : (
+      {(!dateRange || dailyData.length === 0) ? (dataLoading ? (
+          <Card className="animate-fade-in-up"><CardContent className="py-16 space-y-4">
+            <div className="mx-auto h-4 w-40 rounded-full bg-muted-foreground/15 animate-pulse" />
+            <div className="mx-auto h-64 w-full max-w-3xl rounded-xl bg-muted-foreground/8 animate-pulse" style={{ animationDelay: '0.1s' }} />
+          </CardContent></Card>
+        ) : (
+          <Card className="animate-fade-in-up"><CardContent className="flex items-center justify-center py-16 text-muted-foreground"><p className="text-sm">当前筛选条件下暂无数据</p></CardContent></Card>
+        )) : (
         <>
           <Card className="card-hover-effect animate-slide-up" style={{ animationDelay: '0.1s' }}>
             <CardHeader className="pb-2"><CardTitle className="text-base font-bold flex items-center gap-2"><BarChart3 className="h-4 w-4 text-primary animate-bounce-slow" />{timeMode === 'week' ? '当周每日趋势' : timeMode === 'month' ? '当月按周趋势' : timeMode === 'year' ? '当年按月趋势' : '自定义时段趋势'}{selectedProducts.length === 1 && <Badge variant="secondary" className="ml-2 text-xs animate-pop">{aliases[selectedProducts[0]]?.alias || selectedProducts[0]}</Badge>}{selectedShops.length === 1 && <Badge variant="secondary" className="ml-2 text-xs animate-pop">{selectedShops[0]}</Badge>}</CardTitle><CardDescription className="text-xs mt-1">{dateRange.start} ~ {dateRange.end} {timeMode === 'month' ? '按周汇总' : timeMode === 'year' ? '按月汇总' : '每日明细'}</CardDescription></CardHeader>

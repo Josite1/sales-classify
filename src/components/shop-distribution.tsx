@@ -104,7 +104,7 @@ export function ShopDistribution({ records, selectedDate, initialAliases, active
   const dateRange = useMemo(() => {
     if (!active || !selectedDate) return { start: '', end: '' };
     switch (timePeriod) { case 'day': return { start: selectedDate, end: selectedDate }; case 'week': return getISOWeekRange(selectedDate); case 'month': return getMonthRange(selectedDate); case 'custom': return customStart && customEnd ? { start: customStart, end: customEnd } : { start: '', end: '' }; default: return { start: selectedDate, end: selectedDate }; }
-  }, [selectedDate, timePeriod, customStart, customEnd]);
+  }, [active, selectedDate, timePeriod, customStart, customEnd]);
 
   const filteredDates = useMemo(() => {
     if (!dateRange.start || !dateRange.end) return [];

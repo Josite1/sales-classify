@@ -177,7 +177,7 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
       }
       default: return null;
     }
-  }, [selectedDate, timeMode, customStart, customEnd]);
+  }, [active, selectedDate, timeMode, customStart, customEnd]);
 
   // Fetch options from backend
   useEffect(() => {
