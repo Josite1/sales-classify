@@ -10,19 +10,9 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
-    optimizePackageImports: [],
-  },
-  webpack: (config, { isServer }) => {
-    if (!isServer) {
-      // 完全禁止客户端 chunk 拆分，消除 Vercel 部署后 chunk 404
-      config.optimization.splitChunks = {
-        ...config.optimization.splitChunks,
-        maxInitialRequests: Infinity,
-        maxAsyncRequests: Infinity,
-        minSize: 100000000, // 100MB — 实际不会拆分任何东西
-      };
-    }
-    return config;
+    optimizePackageImports: [
+      'lucide-react','recharts','echarts','echarts-for-react','echarts-china-map',
+    ],
   },
   async rewrites() {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
