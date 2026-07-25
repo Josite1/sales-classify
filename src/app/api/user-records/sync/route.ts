@@ -30,11 +30,7 @@ async function fetchAllIn(
   const clean = [...new Set(ids)].filter(Boolean);
   if (clean.length === 0) return [];
 
-<<<<<<< HEAD
   const BATCH_SIZE = 35;
-=======
-  const BATCH_SIZE = 15; // 减小批次大小，避免单批超过 Supabase 1000 行限制（50 ID × 30+ 产品 = 1500+ 行会被截断）
->>>>>>> c745d17 (feat: UI灵动化改造 + 60天数据上限 + 性能优化)
   const allRows: any[] = [];
   const batches: string[][] = [];
 
