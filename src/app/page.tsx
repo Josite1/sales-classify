@@ -97,9 +97,8 @@ function AnimatedNumber({ value, className }: { value: number; className?: strin
   return <span className={className}>{display.toLocaleString()}</span>;
 }
 
-// ── Tab lazy-render: only mount the active tab's content ──
-// This avoids initializing all 5 ECharts instances at once,
-// which dramatically reduces mount time and memory usage.
+// ── Tab keep-alive: 已访问过的 tab 保持挂载（display:none），
+//    切换回已访问 tab 时无需重新初始化 ECharts，实现瞬时切换 ──
 
 function NoDataPrompt() {
   return (
@@ -118,22 +117,40 @@ function TabContentRender({
   records: AllRecords;
   selectedDate: string | null;
 }) {
-  // Only render the active tab — other tabs are never mounted
-  switch (activeTab) {
-    case 'overview':
-      if (!selectedDate) return <NoDataPrompt />;
-      return <DayOverview records={records} selectedDate={selectedDate} />;
-    case 'trend':
-      return <WeeklyTrendChart records={records} selectedDate={selectedDate} />;
-    case 'product':
-      return <ProductAnalysis records={records} selectedDate={selectedDate} />;
-    case 'region':
-      return <RegionDistribution records={records} selectedDate={selectedDate} />;
-    case 'shop':
-      return <ShopDistribution records={records} selectedDate={selectedDate} />;
-    default:
-      return <NoDataPrompt />;
-  }
+  const [visited, setVisited] = useState<Set<string>>(() => new Set([activeTab]));
+  useEffect(() => { setVisited(prev => { const next = new Set(prev); next.add(activeTab); return next; }); }, [activeTab]);
+
+  const show = (name: string) => visited.has(name) ? { display: activeTab === name ? 'block' : 'none' } as const : null;
+
+  return (
+    <>
+      {show('overview') && (
+        <div style={show('overview')!}>
+          {selectedDate ? <DayOverview records={records} selectedDate={selectedDate} /> : <NoDataPrompt />}
+        </div>
+      )}
+      {show('trend') && (
+        <div style={show('trend')!}>
+          <WeeklyTrendChart records={records} selectedDate={selectedDate} />
+        </div>
+      )}
+      {show('product') && (
+        <div style={show('product')!}>
+          <ProductAnalysis records={records} selectedDate={selectedDate} />
+        </div>
+      )}
+      {show('region') && (
+        <div style={show('region')!}>
+          <RegionDistribution records={records} selectedDate={selectedDate} />
+        </div>
+      )}
+      {show('shop') && (
+        <div style={show('shop')!}>
+          <ShopDistribution records={records} selectedDate={selectedDate} />
+        </div>
+      )}
+    </>
+  );
 }
 
 export default function Home() {
@@ -646,9 +663,7 @@ export default function Home() {
                 </TabsList>
 
                 <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-visible fancy-scrollbar">
-                  <div key={activeTab} className="tab-content-enter">
-                    <TabContentRender activeTab={activeTab} records={records} selectedDate={selectedDate} />
-                  </div>
+                  <TabContentRender activeTab={activeTab} records={records} selectedDate={selectedDate} />
                 </div>
               </Tabs>
             </div>
