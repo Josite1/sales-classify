@@ -126,27 +126,27 @@ function TabContentRender({
     <>
       {show('overview') && (
         <div style={show('overview')!}>
-          {selectedDate ? <DayOverview records={records} selectedDate={selectedDate} /> : <NoDataPrompt />}
+          {selectedDate ? <DayOverview records={records} selectedDate={selectedDate} active={activeTab === 'overview'} /> : <NoDataPrompt />}
         </div>
       )}
       {show('trend') && (
         <div style={show('trend')!}>
-          <WeeklyTrendChart records={records} selectedDate={selectedDate} />
+          <WeeklyTrendChart records={records} selectedDate={selectedDate} active={activeTab === 'trend'} />
         </div>
       )}
       {show('product') && (
         <div style={show('product')!}>
-          <ProductAnalysis records={records} selectedDate={selectedDate} />
+          <ProductAnalysis records={records} selectedDate={selectedDate} active={activeTab === 'product'} />
         </div>
       )}
       {show('region') && (
         <div style={show('region')!}>
-          <RegionDistribution records={records} selectedDate={selectedDate} />
+          <RegionDistribution records={records} selectedDate={selectedDate} active={activeTab === 'region'} />
         </div>
       )}
       {show('shop') && (
         <div style={show('shop')!}>
-          <ShopDistribution records={records} selectedDate={selectedDate} />
+          <ShopDistribution records={records} selectedDate={selectedDate} active={activeTab === 'shop'} />
         </div>
       )}
     </>

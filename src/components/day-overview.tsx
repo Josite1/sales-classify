@@ -43,6 +43,7 @@ type TimeMode = 'day' | 'week' | 'month' | 'year' | 'custom';
 interface DayOverviewProps {
   records: AllRecords;
   selectedDate: string | null;
+  active?: boolean;
 }
 
 // ============ 日期范围工具函数（前端纯 UI 展示，无业务逻辑） ============
@@ -322,7 +323,7 @@ function GlobalProductColumn({ products, dateLabel }: {
 }
 
 // ============ 主组件 DayOverview ============
-export function DayOverview({ records, selectedDate }: DayOverviewProps) {
+export function DayOverview({ records, selectedDate, active = true }: DayOverviewProps) {
   const [timeMode, setTimeMode] = useState<TimeMode>('day');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
@@ -373,7 +374,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
 
   // 日期范围（纯 UI 计算，无业务逻辑）
   const dateRange = useMemo(() => {
-    if (!selectedDate) return null;
+    if (!active || !selectedDate) return null;
     switch (timeMode) {
       case 'day':
         return { start: selectedDate, end: selectedDate };

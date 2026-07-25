@@ -71,6 +71,7 @@ interface WeeklyTrendChartProps {
   records: AllRecords;
   selectedDate: string | null;
   initialAliases?: ProductAliases;
+  active?: boolean;
 }
 
 /** 安全获取或创建 ECharts 实例 */
@@ -131,7 +132,7 @@ function MultiSelect({
 }
 
 /* ========== 主组件 ========== */
-export function WeeklyTrendChart({ records, selectedDate, initialAliases }: WeeklyTrendChartProps) {
+export function WeeklyTrendChart({ records, selectedDate, initialAliases, active = true }: WeeklyTrendChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const overviewRef = useRef<HTMLDivElement>(null);
   const productTrendRef = useRef<HTMLDivElement>(null);
@@ -198,7 +199,7 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases }: Week
 
   // 日期范围
   const dateRange = useMemo(() => {
-    if (!selectedDate && timeMode !== 'custom') return null;
+    if (!active || (!selectedDate && timeMode !== 'custom')) return null;
     switch (timeMode) {
       case 'week': return selectedDate ? { start: getISOWeekRange(selectedDate).monday, end: getISOWeekRange(selectedDate).sunday } : null;
       case 'month': return selectedDate ? getMonthRange(selectedDate) : null;

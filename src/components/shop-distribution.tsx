@@ -57,9 +57,9 @@ function AnimatedValue({ value, className }: { value: number; className?: string
   return <span className={className}>{display.toLocaleString()}</span>;
 }
 
-interface ShopDistributionProps { records: AllRecords; selectedDate: string | null; initialAliases?: ProductAliases; }
+interface ShopDistributionProps { records: AllRecords; selectedDate: string | null; initialAliases?: ProductAliases; active?: boolean; }
 
-export function ShopDistribution({ records, selectedDate, initialAliases }: ShopDistributionProps) {
+export function ShopDistribution({ records, selectedDate, initialAliases, active = true }: ShopDistributionProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const trendChartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<echarts.ECharts | null>(null);
@@ -102,7 +102,7 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
   useEffect(() => { setAliases(initialAliases || loadProductAliases()); }, [initialAliases]);
 
   const dateRange = useMemo(() => {
-    if (!selectedDate) return { start: '', end: '' };
+    if (!active || !selectedDate) return { start: '', end: '' };
     switch (timePeriod) { case 'day': return { start: selectedDate, end: selectedDate }; case 'week': return getISOWeekRange(selectedDate); case 'month': return getMonthRange(selectedDate); case 'custom': return customStart && customEnd ? { start: customStart, end: customEnd } : { start: '', end: '' }; default: return { start: selectedDate, end: selectedDate }; }
   }, [selectedDate, timePeriod, customStart, customEnd]);
 
