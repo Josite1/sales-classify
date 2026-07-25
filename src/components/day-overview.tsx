@@ -726,7 +726,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
 
       {/* 顶部固定筛选区 */}
       <div className="sticky top-0 z-30 pb-2 -mt-2 pt-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 animate-fade-in-up">
-        <Card className="border-primary/20 shadow-sm overflow-hidden transition-shadow duration-300 hover:shadow-md">
+        <Card className="glass-card border-primary/20 overflow-hidden transition-all duration-300 hover:shadow-lg">
           <CardContent className="pt-4 pb-4">
             <div className="flex flex-col gap-3.5">
               {/* 第一行：时间维度 */}
@@ -883,7 +883,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
                 overflow-hidden relative card-hover-effect bg-gradient-card
                 border border-opacity-50 rounded-xl
                 transition-all duration-300
-                group
+                group rise-in hover-lift
               `;
               const iconContainerClass = `
                 p-2 rounded-lg stat-icon-glow
@@ -898,7 +898,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
 
               if (card.isTopReason) {
                 return (
-                  <Card key={card.label} className={baseCardClass} style={{ borderLeft: `4px solid ${card.accentColor}`, backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)` }}>
+                  <Card key={card.label} className={baseCardClass} style={{ borderLeft: `4px solid ${card.accentColor}`, backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)`, animationDelay: `${idx * 70}ms` }}>
                     <CardContent className="pt-4 pb-4">
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-muted-foreground font-normal">{card.label}</p>
@@ -928,7 +928,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
 
               if (card.clickable) {
                 return (
-                  <Card key={card.label} className={`${baseCardClass} cursor-pointer hover:ring-1 hover:ring-primary/30`} style={{ borderLeft: `4px solid ${card.accentColor}`, backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)` }} onClick={() => setProductDetailOpen(true)}>
+                  <Card key={card.label} className={`${baseCardClass} cursor-pointer hover:ring-1 hover:ring-primary/30`} style={{ borderLeft: `4px solid ${card.accentColor}`, backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)`, animationDelay: `${idx * 70}ms` }} onClick={() => setProductDetailOpen(true)}>
                     <CardContent className="pt-4 pb-4">
                       <div className="flex items-center justify-between">
                         <p className="text-xs text-muted-foreground font-normal">{card.label}</p>
@@ -953,7 +953,7 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
               }
 
               return (
-                <Card key={card.label} className={baseCardClass} style={{ borderLeft: `4px solid ${card.accentColor}`, backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)` }}>
+                <Card key={card.label} className={baseCardClass} style={{ borderLeft: `4px solid ${card.accentColor}`, backgroundImage: `radial-gradient(circle at 10% 10%, ${card.accentColor}10 0%, transparent 50%)`, animationDelay: `${idx * 70}ms` }}>
                   <CardContent className="pt-4 pb-4">
                     <div className="flex items-center justify-between">
                       <p className="text-xs text-muted-foreground font-normal">{card.label}</p>

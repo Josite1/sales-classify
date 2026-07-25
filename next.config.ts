@@ -1,4 +1,4 @@
-import type { NextConfig } from 'next';
+﻿import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
   images: {
@@ -11,8 +11,7 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizePackageImports: [
-      'lucide-react',
-      'recharts',
+      'lucide-react','recharts','echarts','echarts-for-react','echarts-china-map',
     ],
   },
   async rewrites() {

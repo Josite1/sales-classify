@@ -173,7 +173,7 @@ class ExcelProcessor:
             self.shop_col = '店铺'
 
         # Column detection
-        product_code_col = self._find_col(['商家编码(新)', '平台商家编码', '商品编码']) or '商家编码(新)'
+        product_code_col = self._find_col(['商家编码(新)', '平台商家编码', '商家编码']) or '商家编码(新)'
         remark_col = self._find_col(['客服备注', '备注']) or '客服备注'
         qty_col = self._find_col(['货品数量', '商品数量', '数量']) or '货品数量'
         addr_col = self._find_col(['收件人省市区', '收货地址', '省份', '省市区']) or '收件人省市区'

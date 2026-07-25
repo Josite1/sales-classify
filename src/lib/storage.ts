@@ -4,6 +4,7 @@
  * No business logic, no computation, no API calls.
  */
 import type { AllRecords, ProductAliases } from './types';
+import { trimRecords } from './constants';
 
 const BASE_STORAGE_KEY = 'after-sales-records';
 const BASE_ALIAS_KEY = 'after-sales-aliases';
@@ -78,7 +79,8 @@ export function loadAllRecords(): AllRecords {
 export function saveAllRecords(records: AllRecords): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(getStorageKey(), JSON.stringify(records));
+    const trimmed = trimRecords(records);
+    localStorage.setItem(getStorageKey(), JSON.stringify(trimmed));
   } catch (e) {
     console.error('[storage] 保存失败，可能是数据量过大:', e);
     // localStorage 满时不要静默失败
@@ -130,7 +132,8 @@ export function loadCloudCache(): AllRecords | null {
 export function saveCloudCache(records: AllRecords): void {
   if (typeof window === 'undefined') return;
   try {
-    localStorage.setItem(getCloudCacheKey(), JSON.stringify(records));
+    const trimmed = trimRecords(records);
+    localStorage.setItem(getCloudCacheKey(), JSON.stringify(trimmed));
   } catch (e) {
     console.warn('[storage] 云端缓存保存失败，数据过大:', e);
     try { localStorage.removeItem(getCloudCacheKey()); } catch {}

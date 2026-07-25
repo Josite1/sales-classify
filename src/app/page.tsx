@@ -12,9 +12,8 @@ import { apiComputeFilteredSummary } from '@/lib/api';
 import { useAuth } from '@/lib/auth';
 import { getAccessToken } from '@/lib/auth';
 import type { AllRecords, DateRecord, ProductAliases } from '@/lib/types';
+import { trimRecords } from '@/lib/constants';
 import DateRecordsPanel from '@/components/date-records-panel';
-import { ProductAnalysis } from '@/components/product-analysis';
-import { RegionDistribution } from '@/components/region-distribution';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import {
@@ -61,6 +60,12 @@ const DataImportDialog = dynamic(
 );
 const ChangePasswordDialog = dynamic(
   () => import('@/components/change-password-dialog').then(m => m.ChangePasswordDialog), { ssr: false }
+);
+const ProductAnalysis = dynamic(
+  () => import('@/components/product-analysis').then(m => m.ProductAnalysis), { ssr: false }
+);
+const RegionDistribution = dynamic(
+  () => import('@/components/region-distribution').then(m => m.RegionDistribution), { ssr: false }
 );
 
 const SCROLL_KEY = 'dashboard_scroll';
@@ -332,17 +337,18 @@ export default function Home() {
         cloudRecords = await fetchFromCloud(token);
         if (cancelled) { initialSyncDone.current = false; return; }
 
-        // 4. 更新缓存
-        saveCloudCache(cloudRecords);
+        // 4. 修剪多余记录 & 更新缓存
+        const trimmed = trimRecords(cloudRecords);
+        saveCloudCache(trimmed);
         const newHash = JSON.stringify(
-          Object.keys(cloudRecords).sort().map(k => `${k}:${cloudRecords[k].importedAt}`)
+          Object.keys(trimmed).sort().map(k => `${k}:${trimmed[k].importedAt}`)
         );
         saveCloudHash(newHash);
         lastCloudHashRef.current = newHash;
 
-        setRecords(cloudRecords);
+        setRecords(trimmed);
         setAliases(loadProductAliases());
-        const dates = Object.keys(cloudRecords).sort().reverse();
+        const dates = Object.keys(trimmed).sort().reverse();
         if (dates.length > 0) setSelectedDate(dates[0]);
       } catch (e) {
         setSyncError('登录同步失败: ' + String(e instanceof Error ? e.message : e));
@@ -387,17 +393,18 @@ export default function Home() {
         const cloudRecords = await fetchFromCloud(token);
         if (Object.keys(cloudRecords).length === 0) return;
 
-        // 更新缓存
-        saveCloudCache(cloudRecords);
+        // 更新缓存（自动修剪60天）
+        const trimmedCloud = trimRecords(cloudRecords);
+        saveCloudCache(trimmedCloud);
         saveCloudHash(cloudHash);
 
-        if (pendingSyncDate.current && !cloudRecords[pendingSyncDate.current]) return;
+        if (pendingSyncDate.current && !trimmedCloud[pendingSyncDate.current]) return;
         pendingSyncDate.current = null;
-        setRecords(cloudRecords);
+        setRecords(trimmedCloud);
 
         const curDate = selectedDateRef.current;
-        if (curDate && !cloudRecords[curDate]) {
-          const dates = Object.keys(cloudRecords).sort().reverse();
+        if (curDate && !trimmedCloud[curDate]) {
+          const dates = Object.keys(trimmedCloud).sort().reverse();
           setSelectedDate(dates[0] || null);
         }
       } catch {
@@ -416,7 +423,7 @@ export default function Home() {
   }, [mounted, authLoading, isAuthenticated, router]);
 
   const handleImported = useCallback((newRecords: AllRecords, newRecordsOnly?: AllRecords) => {
-    setRecords(prev => ({ ...prev, ...newRecords }));
+    setRecords(prev => trimRecords({ ...prev, ...newRecords }));
     const toSync = newRecordsOnly || newRecords;
     if (newRecordsOnly) {
       pendingSyncDate.current = Object.keys(newRecordsOnly)[0] || null;
@@ -434,13 +441,14 @@ export default function Home() {
   }, []);
 
   const handleRecordsChange = useCallback((updated: AllRecords) => {
-    setRecords(updated);
+    const trimmed = trimRecords(updated);
+    setRecords(trimmed);
     const curDate = selectedDateRef.current;
-    const dates = Object.keys(updated).sort().reverse();
-    if (curDate && !updated[curDate]) setSelectedDate(dates[0] || null);
+    const dates = Object.keys(trimmed).sort().reverse();
+    if (curDate && !trimmed[curDate]) setSelectedDate(dates[0] || null);
     syncingCloudRef.current = true;
     (async () => {
-      try { const token = await getAccessToken(); if (token) await syncToCloud(updated, token, true); }
+      try { const token = await getAccessToken(); if (token) await syncToCloud(trimmed, token, true); }
       catch (e) { setSyncError('云端同步失败: ' + String(e instanceof Error ? e.message : e)); }
       finally { syncingCloudRef.current = false; }
     })();
@@ -478,7 +486,13 @@ export default function Home() {
   ];
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative">
+      {/* 背景光斑层 + 网格纹理 */}
+      <div className="ambient-bg" aria-hidden="true">
+        <div className="blob-c" />
+      </div>
+      <div className="fixed inset-0 -z-10 grid-texture pointer-events-none" aria-hidden="true" />
+
       <style>{`
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
         @keyframes fadeInUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
@@ -519,33 +533,34 @@ export default function Home() {
         .page-content { will-change: transform, opacity; }
       `}</style>
 
-      <header className="sticky top-0 z-40 bg-background/80 backdrop-blur-xl border-b border-primary/10 animate-fade-in">
+      <header className="sticky top-0 z-40 glass-header border-b border-primary/10 animate-fade-in">
         <div className="w-full px-2 py-2 flex items-center justify-between gap-3">
           <div className="flex items-center gap-3 animate-fade-in-left">
-            <div className="bg-gradient-to-br from-primary to-emerald-600 text-primary-foreground p-2.5 rounded-xl shadow-lg shadow-primary/20 pulse-glow">
+            <div className="bg-gradient-to-br from-primary via-emerald-500 to-teal-500 text-primary-foreground p-2.5 rounded-2xl shadow-lg shadow-primary/25 animate-float">
               <BarChart3 className="h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-xl font-bold tracking-tight">售后数据看板</h1>
+              <h1 className="text-xl font-bold tracking-tight text-gradient">售后数据看板</h1>
               <p className="text-sm text-muted-foreground">产品售后数量统计与周趋势分析</p>
             </div>
           </div>
 
-          <div className="hidden md:flex items-center gap-5 animate-fade-in animate-delay-2">
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <FileJson className="h-4 w-4" />
-              <AnimatedNumber value={totalDays} className="font-bold text-foreground tabular-nums" /> <span>日期</span>
-            </div>
-            <div className="w-px h-4 bg-border" />
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <Package className="h-4 w-4" />
-              <AnimatedNumber value={totalProducts} className="font-bold text-foreground tabular-nums" /> <span>产品</span>
-            </div>
-            <div className="w-px h-4 bg-border" />
-            <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <BarChart3 className="h-4 w-4" />
-              <AnimatedNumber value={totalOrders} className="font-bold text-foreground tabular-nums" /> <span>总单</span>
-            </div>
+          <div className="hidden md:flex items-center gap-4 animate-fade-in animate-delay-2">
+            {[
+              { icon: FileJson, value: totalDays, unit: '日期' },
+              { icon: Package, value: totalProducts, unit: '产品' },
+              { icon: BarChart3, value: totalOrders, unit: '总单' },
+            ].map(({ icon: Icon, value, unit }, i) => (
+              <div
+                key={unit}
+                className="flex items-center gap-1.5 px-3 py-1 rounded-full text-sm text-muted-foreground bg-white/50 border border-primary/10 backdrop-blur-sm transition-all duration-300 hover:border-primary/30 hover:bg-white/80 hover:-translate-y-0.5 cursor-default"
+                style={{ animationDelay: `${0.15 * i}s` }}
+              >
+                <Icon className="h-4 w-4 text-primary/70" />
+                <AnimatedNumber value={value} className="font-bold text-foreground tabular-nums" />
+                <span className="text-xs">{unit}</span>
+              </div>
+            ))}
           </div>
 
           {syncError && (
@@ -562,7 +577,7 @@ export default function Home() {
             <Button onClick={() => setExcelImportOpen(true)} variant="outline" size="sm" className="shrink-0">
               <FileSpreadsheet className="h-4 w-4 mr-1.5" />导入Excel
             </Button>
-            <Button onClick={() => setImportOpen(true)} size="sm" className="shrink-0">
+            <Button onClick={() => setImportOpen(true)} size="sm" className="shrink-0 btn-shine bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white border-0 shadow-md shadow-emerald-500/25 transition-all duration-300 hover:shadow-lg hover:shadow-emerald-500/35 hover:-translate-y-px">
               <Plus className="h-4 w-4 mr-1.5" />导入
             </Button>
             <DropdownMenu>
@@ -588,10 +603,15 @@ export default function Home() {
       <main className="max-w-full px-[5vw] py-3 flex-1 min-h-[calc(100vh-48px-50px)]">
         {totalDays === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-muted-foreground animate-scale-in">
-            <FileJson className="h-16 w-16 mb-4 opacity-30" />
-            <h2 className="text-lg font-semibold mb-2">尚未导入数据</h2>
+            <div className="relative mb-6">
+              <div className="absolute inset-0 rounded-full bg-primary/15 blur-2xl scale-150 animate-pulse" />
+              <FileJson className="relative h-16 w-16 text-primary/60 animate-float" />
+            </div>
+            <h2 className="text-lg font-semibold mb-2 text-foreground">尚未导入数据</h2>
             <p className="text-sm mb-6 text-center max-w-md">导入代表特定日期的 JSON 售后数据，系统将自动记录并支持周趋势分析</p>
-            <Button onClick={() => setImportOpen(true)} size="lg"><Plus className="h-4 w-4 mr-1.5" />导入第一份数据</Button>
+            <Button onClick={() => setImportOpen(true)} size="lg" className="btn-shine bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white border-0 shadow-lg shadow-emerald-500/25">
+              <Plus className="h-4 w-4 mr-1.5" />导入第一份数据
+            </Button>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-[300px_1fr] gap-2 lg:h-[calc(100vh-60px)] animate-fade-in-up">
@@ -613,15 +633,19 @@ export default function Home() {
 
             <div className="lg:flex lg:flex-col lg:h-[calc(100vh-60px)] pr-4 max-w-[70vw] animate-scale-in animate-delay-1">
               <Tabs value={activeTab} onValueChange={handleTabChange} className="w-full flex flex-col lg:flex-1 lg:overflow-hidden">
-                <TabsList className="mb-3 shrink-0">
+                <TabsList className="mb-3 shrink-0 glass-card rounded-full p-1 gap-0.5 border border-primary/10">
                   {tabs.map(({ value, icon: Icon, label }) => (
-                    <TabsTrigger key={value} value={value} className={`gap-1.5 transition-all duration-200 ${activeTab === value ? 'tab-indicator-active' : ''}`}>
+                    <TabsTrigger
+                      key={value}
+                      value={value}
+                      className={`gap-1.5 rounded-full transition-all duration-300 data-[state=active]:bg-gradient-to-r data-[state=active]:from-emerald-600 data-[state=active]:to-teal-500 data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-emerald-500/25 hover:text-primary ${activeTab === value ? 'tab-indicator-active' : ''}`}
+                    >
                       <Icon className="h-3.5 w-3.5" />{label}
                     </TabsTrigger>
                   ))}
                 </TabsList>
 
-                <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-visible">
+                <div ref={scrollContainerRef} className="flex-1 overflow-y-auto scrollbar-visible fancy-scrollbar">
                   <div key={activeTab} className="tab-content-enter">
                     <TabContentRender activeTab={activeTab} records={records} selectedDate={selectedDate} />
                   </div>
