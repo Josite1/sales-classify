@@ -43,7 +43,6 @@ type TimeMode = 'day' | 'week' | 'month' | 'year' | 'custom';
 interface DayOverviewProps {
   records: AllRecords;
   selectedDate: string | null;
-  active?: boolean;
 }
 
 // ============ 日期范围工具函数（前端纯 UI 展示，无业务逻辑） ============
@@ -323,7 +322,7 @@ function GlobalProductColumn({ products, dateLabel }: {
 }
 
 // ============ 主组件 DayOverview ============
-export function DayOverview({ records, selectedDate, active = true }: DayOverviewProps) {
+export function DayOverview({ records, selectedDate }: DayOverviewProps) {
   const [timeMode, setTimeMode] = useState<TimeMode>('day');
   const [customStart, setCustomStart] = useState('');
   const [customEnd, setCustomEnd] = useState('');
@@ -349,10 +348,9 @@ export function DayOverview({ records, selectedDate, active = true }: DayOvervie
   const [allShops, setAllShops] = useState<string[]>([]);
   const [optionsLoading, setOptionsLoading] = useState(false);
 
-  // 内存缓存：同日期+同筛选条件直接返回缓存，二次访问零延迟
-  const summaryCacheRef = useRef<Map<string, any>>(new Map());
-  // records 变化（导入/删除/同步）时清空整个缓存
-  useEffect(() => { summaryCacheRef.current.clear(); }, [records]);
+  useEffect(() => {
+    setAliases(loadProductAliases());
+  }, []);
 
   // 防抖
   useEffect(() => {
@@ -375,7 +373,7 @@ export function DayOverview({ records, selectedDate, active = true }: DayOvervie
 
   // 日期范围（纯 UI 计算，无业务逻辑）
   const dateRange = useMemo(() => {
-    if (!active || !selectedDate) return null;
+    if (!selectedDate) return null;
     switch (timeMode) {
       case 'day':
         return { start: selectedDate, end: selectedDate };
@@ -391,7 +389,7 @@ export function DayOverview({ records, selectedDate, active = true }: DayOvervie
       default:
         return null;
     }
-  }, [active, selectedDate, timeMode, customStart, customEnd]);
+  }, [selectedDate, timeMode, customStart, customEnd]);
 
   // Fetch options from backend API
   useEffect(() => {
@@ -480,18 +478,11 @@ export function DayOverview({ records, selectedDate, active = true }: DayOvervie
       return;
     }
     let cancelled = false;
-    const cacheKey = `${dateRange.start}|${dateRange.end}|${[...selectedProducts].sort().join(',')}|${[...selectedShops].sort().join(',')}`;
-    const cached = summaryCacheRef.current.get(cacheKey);
-    if (cached !== undefined) {
-      setSummary(cached);
-      return;
-    }
     setSummaryLoading(true);
     (async () => {
       try {
         const result = await apiComputeFilteredSummary(filteredRecords, dateRange.start, dateRange.end, selectedProducts, selectedShops);
         if (!cancelled) {
-          summaryCacheRef.current.set(cacheKey, result.summary);
           setSummary(result.summary);
         }
       } catch (e) {

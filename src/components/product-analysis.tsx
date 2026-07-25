@@ -80,10 +80,10 @@ const REMARK_PAGE_SIZE = 10;
 const MAX_DATE_RANGE_DAYS = 90;
 
 interface ProductAnalysisProps {
-  records: AllRecords; selectedDate?: string | null; initialAliases?: ProductAliases; readOnly?: boolean; active?: boolean;
+  records: AllRecords; selectedDate?: string | null; initialAliases?: ProductAliases; readOnly?: boolean;
 }
 
-export function ProductAnalysis({ records, selectedDate, initialAliases, readOnly, active = true }: ProductAnalysisProps) {
+export function ProductAnalysis({ records, selectedDate, initialAliases, readOnly }: ProductAnalysisProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const qtyChartRef = useRef<HTMLDivElement>(null);
   const flagChartRef = useRef<HTMLDivElement>(null);
@@ -160,7 +160,6 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
 
   // 日期范围
   const dateRange = useMemo(() => {
-    if (!active) return null;
     switch (timeMode) {
       case 'day': return (selectedDate || customStart) ? { start: selectedDate || customStart, end: selectedDate || customStart } : null;
       case 'week': return customStart && customEnd ? { start: customStart, end: customEnd } : null;
@@ -177,7 +176,7 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
       }
       default: return null;
     }
-  }, [active, selectedDate, timeMode, customStart, customEnd]);
+  }, [selectedDate, timeMode, customStart, customEnd]);
 
   // Fetch options from backend
   useEffect(() => {

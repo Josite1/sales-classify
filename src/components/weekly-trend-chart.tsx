@@ -71,7 +71,6 @@ interface WeeklyTrendChartProps {
   records: AllRecords;
   selectedDate: string | null;
   initialAliases?: ProductAliases;
-  active?: boolean;
 }
 
 /** 安全获取或创建 ECharts 实例 */
@@ -132,7 +131,7 @@ function MultiSelect({
 }
 
 /* ========== 主组件 ========== */
-export function WeeklyTrendChart({ records, selectedDate, initialAliases, active = true }: WeeklyTrendChartProps) {
+export function WeeklyTrendChart({ records, selectedDate, initialAliases }: WeeklyTrendChartProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const overviewRef = useRef<HTMLDivElement>(null);
   const productTrendRef = useRef<HTMLDivElement>(null);
@@ -169,10 +168,6 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases, active
     setAliases(initialAliases || loadProductAliases());
   }, [initialAliases]);
 
-  // 内存缓存：同日期+同筛选直接返回缓存，二次切换零延迟
-  const trendCacheRef = useRef<Map<string, any>>(new Map());
-  useEffect(() => { trendCacheRef.current.clear(); }, [records]);
-
   // 防抖
   useEffect(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -203,7 +198,7 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases, active
 
   // 日期范围
   const dateRange = useMemo(() => {
-    if (!active || (!selectedDate && timeMode !== 'custom')) return null;
+    if (!selectedDate && timeMode !== 'custom') return null;
     switch (timeMode) {
       case 'week': return selectedDate ? { start: getISOWeekRange(selectedDate).monday, end: getISOWeekRange(selectedDate).sunday } : null;
       case 'month': return selectedDate ? getMonthRange(selectedDate) : null;
@@ -211,7 +206,7 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases, active
       case 'custom': return customStart && customEnd ? { start: customStart, end: customEnd } : null;
       default: return null;
     }
-  }, [active, selectedDate, timeMode, customStart, customEnd]);
+  }, [selectedDate, timeMode, customStart, customEnd]);
 
   // Fetch options from backend
   useEffect(() => {
@@ -258,21 +253,12 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases, active
       setTopReasons([]);
       return;
     }
-    const cacheKey = `${dateRange.start}|${dateRange.end}|${timeMode}|${[...selectedProducts].sort().join(',')}|${[...selectedShops].sort().join(',')}`;
-    const cached = trendCacheRef.current.get(cacheKey);
-    if (cached !== undefined) {
-      setDailyData(cached.dailyData);
-      setTopProducts(cached.topProducts);
-      setTopReasons(cached.topReasons);
-      return;
-    }
     let cancelled = false;
     setDataLoading(true);
     (async () => {
       try {
         const result = await apiComputeTrendData(records, dateRange!.start, dateRange!.end, timeMode, selectedProducts, selectedShops, aliases);
         if (!cancelled) {
-          trendCacheRef.current.set(cacheKey, { dailyData: result.dailyData, topProducts: result.topProducts, topReasons: result.topReasons });
           setDailyData(result.dailyData);
           setTopProducts(result.topProducts);
           setTopReasons(result.topReasons);

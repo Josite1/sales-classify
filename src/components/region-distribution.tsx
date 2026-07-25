@@ -101,9 +101,9 @@ function buildTooltipHtml(name: string, total: number, townVillage: number): str
   return `<div style="min-width:200px"><b style="font-size:14px">${name}</b><div style="margin-top:6px;font-size:13px"><span style="color:#64748b">售后总数：</span><b style="color:#10b981;font-size:15px">${total}</b> 单</div><div style="margin-top:4px;font-size:12px"><span style="color:#64748b">乡镇：</span><b style="color:#f59e0b">${townVillage}</b> 单 (${tvRatio}%)</div></div>`;
 }
 
-interface RegionDistributionProps { records: AllRecords; selectedDate: string | null; initialAliases?: ProductAliases; active?: boolean; }
+interface RegionDistributionProps { records: AllRecords; selectedDate: string | null; initialAliases?: ProductAliases; }
 
-export function RegionDistribution({ records, selectedDate, initialAliases, active = true }: RegionDistributionProps) {
+export function RegionDistribution({ records, selectedDate, initialAliases }: RegionDistributionProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const chartRef = useRef<HTMLDivElement>(null);
   const trendChartRef = useRef<HTMLDivElement>(null);
@@ -195,14 +195,14 @@ export function RegionDistribution({ records, selectedDate, initialAliases, acti
 
   // 日期范围
   const dateRange = useMemo(() => {
-    if (!active || !selectedDate) return { start: '', end: '' };
+    if (!selectedDate) return { start: '', end: '' };
     switch (timePeriod) {
       case 'day': return { start: selectedDate, end: selectedDate };
       case 'week': return getISOWeekRange(selectedDate);
       case 'month': return getMonthRange(selectedDate);
       case 'custom': return customStart && customEnd ? { start: customStart, end: customEnd } : { start: '', end: '' };
     }
-  }, [active, selectedDate, timePeriod, customStart, customEnd]);
+  }, [selectedDate, timePeriod, customStart, customEnd]);
 
   const filteredDates = useMemo(() => {
     if (!dateRange.start || !dateRange.end) return [];
