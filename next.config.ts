@@ -11,9 +11,28 @@ const nextConfig: NextConfig = {
   },
   experimental: {
     optimizePackageImports: [
-      'lucide-react','recharts','echarts','echarts-for-react','echarts-china-map',
+      'lucide-react','recharts',
     ],
   },
+  webpack: (config) => ({
+    ...config,
+    optimization: {
+      ...config.optimization,
+      splitChunks: {
+        ...config.optimization.splitChunks,
+        cacheGroups: {
+          ...(config.optimization.splitChunks as any)?.cacheGroups,
+          echarts: {
+            test: /[\\/]node_modules[\\/]echarts[\\/]/,
+            name: 'echarts',
+            chunks: 'all',
+            priority: 20,
+            reuseExistingChunk: true,
+          },
+        },
+      },
+    },
+  }),
   async rewrites() {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
     return [
