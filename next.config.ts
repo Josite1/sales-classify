@@ -10,29 +10,29 @@ const nextConfig: NextConfig = {
     ],
   },
   experimental: {
-    optimizePackageImports: [
-      'lucide-react','recharts',
-    ],
+    optimizePackageImports: [],
   },
-  webpack: (config) => ({
-    ...config,
-    optimization: {
-      ...config.optimization,
-      splitChunks: {
-        ...config.optimization.splitChunks,
-        cacheGroups: {
-          ...(config.optimization.splitChunks as any)?.cacheGroups,
-          echarts: {
-            test: /[\\/]node_modules[\\/]echarts[\\/]/,
-            name: 'echarts',
-            chunks: 'all',
-            priority: 20,
-            reuseExistingChunk: true,
-          },
+  webpack: (config) => {
+    // 禁止 Webpack 把 echarts 拆成异步 chunk，消除 Vercel 部署后 chunk 404
+    const plugins = config.plugins || [];
+    config.optimization.splitChunks = {
+      ...config.optimization.splitChunks,
+      cacheGroups: {
+        ...(config.optimization.splitChunks as any)?.cacheGroups,
+        default: false,
+        vendors: false,
+        echarts: {
+          test: /[\\/]node_modules[\\/](echarts|zrender)[\\/]/,
+          name: 'echarts',
+          chunks: 'all',
+          priority: 30,
+          enforce: true,
+          reuseExistingChunk: false,
         },
       },
-    },
-  }),
+    };
+    return config;
+  },
   async rewrites() {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8001';
     return [
