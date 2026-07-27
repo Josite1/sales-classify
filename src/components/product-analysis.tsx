@@ -178,12 +178,24 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
     }
   }, [selectedDate, timeMode, customStart, customEnd]);
 
+  const filteredRecords = useMemo((): AllRecords => {
+    if (!dateRange) return records;
+    const f: AllRecords = {};
+    for (const [d, r] of Object.entries(records)) {
+      if (d >= dateRange.start && d <= dateRange.end) f[d] = r;
+    }
+    return f;
+  }, [records, dateRange]);
+
+  const analysisCacheRef = useRef<Map<string, any>>(new Map());
+  useEffect(() => { analysisCacheRef.current.clear(); }, [records]);
+
   // Fetch options from backend
   useEffect(() => {
     if (!dateRange || Object.keys(records).length === 0) return;
     let cancelled = false;
     (async () => {
-      const result = await apiComputeOptions(records, dateRange!.start, dateRange!.end, selectedProduct ? [selectedProduct] : [], selectedShops, aliases);
+      const result = await apiComputeOptions(filteredRecords, dateRange!.start, dateRange!.end, selectedProduct ? [selectedProduct] : [], selectedShops, aliases);
       if (!cancelled) {
         setProductOptions(result.productOptions.filter((p: any) => p.count > 0));
         setShopOptions(result.shopOptions.filter((s: any) => s.count > 0));
@@ -204,12 +216,16 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
   // Fetch product analysis from backend
   useEffect(() => {
     if (!dateRange || !selectedProduct || Object.keys(records).length === 0) { setProductData(null); setGlobalTotal(0); setStats(null); return; }
+    const cacheKey = `${dateRange.start}|${dateRange.end}|${selectedProduct}|${[...selectedShops].sort()}`;
+    const cached = analysisCacheRef.current.get(cacheKey);
+    if (cached) { setProductData(cached.productData); setGlobalTotal(cached.globalTotal); setStats(cached.stats); return; }
     let cancelled = false;
     setLoading(true);
     (async () => {
       try {
-        const result = await apiComputeProductAnalysis(records, dateRange!.start, dateRange!.end, selectedProduct, selectedShops);
+        const result = await apiComputeProductAnalysis(filteredRecords, dateRange!.start, dateRange!.end, selectedProduct, selectedShops);
         if (!cancelled) {
+          analysisCacheRef.current.set(cacheKey, { productData: result.productData, globalTotal: result.globalTotal, stats: result.stats });
           setProductData(result.productData);
           setGlobalTotal(result.globalTotal);
           setStats(result.stats);
