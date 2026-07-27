@@ -352,6 +352,10 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
     setAliases(loadProductAliases());
   }, []);
 
+  // 概览数据缓存：同参数复用，切回已访问日期瞬间加载
+  const summaryCacheRef = useRef<Map<string, any>>(new Map());
+  useEffect(() => { summaryCacheRef.current.clear(); }, [records]);
+
   // 防抖
   useEffect(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -477,12 +481,16 @@ export function DayOverview({ records, selectedDate }: DayOverviewProps) {
       setPrevSummary(null);
       return;
     }
+    const cacheKey = `${dateRange.start}|${dateRange.end}|${[...selectedProducts].sort()}|${[...selectedShops].sort()}`;
+    const cached = summaryCacheRef.current.get(cacheKey);
+    if (cached) { setSummary(cached); return; }
     let cancelled = false;
     setSummaryLoading(true);
     (async () => {
       try {
         const result = await apiComputeFilteredSummary(filteredRecords, dateRange.start, dateRange.end, selectedProducts, selectedShops);
         if (!cancelled) {
+          summaryCacheRef.current.set(cacheKey, result.summary);
           setSummary(result.summary);
         }
       } catch (e) {

@@ -168,6 +168,10 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases }: Week
     setAliases(initialAliases || loadProductAliases());
   }, [initialAliases]);
 
+  // 趋势数据缓存：同参数复用，避免重复调后端
+  const trendCacheRef = useRef<Map<string, any>>(new Map());
+  useEffect(() => { trendCacheRef.current.clear(); }, [records]);
+
   // 防抖
   useEffect(() => {
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
@@ -208,12 +212,22 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases }: Week
     }
   }, [selectedDate, timeMode, customStart, customEnd]);
 
+  // 按日期范围预过滤，减少 API 传输量
+  const filteredRecords = useMemo((): AllRecords => {
+    if (!dateRange) return records;
+    const f: AllRecords = {};
+    for (const [d, r] of Object.entries(records)) {
+      if (d >= dateRange.start && d <= dateRange.end) f[d] = r;
+    }
+    return f;
+  }, [records, dateRange]);
+
   // Fetch options from backend
   useEffect(() => {
     if (!dateRange || Object.keys(records).length === 0) return;
     let cancelled = false;
     (async () => {
-      const result = await apiComputeOptions(records, dateRange!.start, dateRange!.end, selectedProducts, selectedShops, aliases);
+      const result = await apiComputeOptions(filteredRecords, dateRange!.start, dateRange!.end, selectedProducts, selectedShops, aliases);
       if (!cancelled) {
         setProductOptions(result.productOptions);
         setShopOptions(result.shopOptions);
@@ -253,12 +267,21 @@ export function WeeklyTrendChart({ records, selectedDate, initialAliases }: Week
       setTopReasons([]);
       return;
     }
+    const cacheKey = `${dateRange.start}|${dateRange.end}|${timeMode}|${[...selectedProducts].sort()}|${[...selectedShops].sort()}`;
+    const cached = trendCacheRef.current.get(cacheKey);
+    if (cached) {
+      setDailyData(cached.dailyData);
+      setTopProducts(cached.topProducts);
+      setTopReasons(cached.topReasons);
+      return;
+    }
     let cancelled = false;
     setDataLoading(true);
     (async () => {
       try {
-        const result = await apiComputeTrendData(records, dateRange!.start, dateRange!.end, timeMode, selectedProducts, selectedShops, aliases);
+        const result = await apiComputeTrendData(filteredRecords, dateRange!.start, dateRange!.end, timeMode, selectedProducts, selectedShops, aliases);
         if (!cancelled) {
+          trendCacheRef.current.set(cacheKey, { dailyData: result.dailyData, topProducts: result.topProducts, topReasons: result.topReasons });
           setDailyData(result.dailyData);
           setTopProducts(result.topProducts);
           setTopReasons(result.topReasons);
