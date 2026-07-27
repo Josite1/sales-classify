@@ -187,7 +187,13 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
     }
 
     if (chartInstanceRef.current) { try { chartInstanceRef.current.dispose(); } catch {} chartInstanceRef.current = null; }
-    const chart = echarts.init(chartRef.current, 'brutal');
+    let chart;
+    try {
+      chart = echarts.init(chartRef.current, 'brutal');
+    } catch (e) {
+      console.error('[shop] ECharts 初始化失败:', e);
+      return;
+    }
     chartInstanceRef.current = chart;
     const sorted = [...chartData].sort((a, b) => b.value - a.value);
     const names = sorted.map(d => d.name);
@@ -236,7 +242,14 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
       return;
     }
     if (trendChartInstanceRef.current) { try { trendChartInstanceRef.current.dispose(); } catch {} trendChartInstanceRef.current = null; }
-    const chart = echarts.init(trendChartRef.current, 'brutal'); trendChartInstanceRef.current = chart;
+    let chart;
+    try {
+      chart = echarts.init(trendChartRef.current, 'brutal');
+    } catch (e) {
+      console.error('[shop] 趋势图 ECharts 初始化失败:', e);
+      return;
+    }
+    trendChartInstanceRef.current = chart;
     chart.setOption({
       tooltip: { ...TOOLTIP_STYLE, trigger: 'axis' }, legend: { type: 'scroll', bottom: 0, icon: 'roundRect', itemWidth: 14, itemHeight: 8, textStyle: { fontSize: 11, color: '#64748b' } },
       animation: true, animationDuration: 800, animationEasing: 'sinusoidalInOut' as const, animationDelay: (idx: number) => idx * 80,
