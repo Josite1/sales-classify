@@ -111,9 +111,19 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
     return Object.keys(records).sort().filter(d => d >= dateRange.start && d <= dateRange.end);
   }, [records, dateRange]);
 
+  const filteredRecords = useMemo((): AllRecords => {
+    if (filteredDates.length === 0) return records;
+    const f: AllRecords = {};
+    for (const d of filteredDates) { if (records[d]) f[d] = records[d]; }
+    return f;
+  }, [records, filteredDates]);
+
+  const shopCacheRef = useRef<Map<string, any>>(new Map());
+  useEffect(() => { shopCacheRef.current.clear(); }, [records]);
+
   useEffect(() => {
     if (filteredDates.length === 0 || Object.keys(records).length === 0) return;
-    let c = false; (async () => { const r = await apiComputeOptions(records, dateRange.start, dateRange.end, [], [], aliases); if (!c) { setAllProductNames(r.allProducts); setProductNames(r.allProducts); if (searchKeyword.trim()) setFilteredProductNames(r.allProducts.filter((n: string) => n.toLowerCase().includes(searchKeyword.trim().toLowerCase()))); else setFilteredProductNames(r.allProducts); } })();
+    let c = false; (async () => { const r = await apiComputeOptions(filteredRecords, dateRange.start, dateRange.end, [], [], aliases); if (!c) { setAllProductNames(r.allProducts); setProductNames(r.allProducts); if (searchKeyword.trim()) setFilteredProductNames(r.allProducts.filter((n: string) => n.toLowerCase().includes(searchKeyword.trim().toLowerCase()))); else setFilteredProductNames(r.allProducts); } })();
     return () => { c = true; };
   }, [filteredDates, records, dateRange, searchKeyword, aliases]);
 
@@ -124,21 +134,24 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
 
   useEffect(() => {
     if (targetProducts.length === 0 || filteredDates.length === 0 || Object.keys(records).length === 0) { setAggregatedData(null); return; }
+    const cacheKey = `agg|${dateRange.start}|${dateRange.end}|${[...targetProducts].sort()}|${flagType}`;
+    const cached = shopCacheRef.current.get(cacheKey);
+    if (cached) { setAggregatedData(cached); return; }
     let c = false; setLoading(true);
     if (chartInstanceRef.current && !chartInstanceRef.current.isDisposed()) chartInstanceRef.current.showLoading({ text: '', color: '#14b8a6', maskColor: 'rgba(255,255,255,0.6)' });
-    (async () => { try { const r = await apiComputeShopAggregation(records, dateRange.start, dateRange.end, targetProducts, flagType); if (!c) setAggregatedData(r); } catch (e) { if (!c) setAggregatedData(null); } finally { if (!c) { setLoading(false); if (chartInstanceRef.current && !chartInstanceRef.current.isDisposed()) chartInstanceRef.current.hideLoading(); } } })();
+    (async () => { try { const r = await apiComputeShopAggregation(filteredRecords, dateRange.start, dateRange.end, targetProducts, flagType); if (!c) { shopCacheRef.current.set(cacheKey, r); setAggregatedData(r); } } catch (e) { if (!c) setAggregatedData(null); } finally { if (!c) { setLoading(false); if (chartInstanceRef.current && !chartInstanceRef.current.isDisposed()) chartInstanceRef.current.hideLoading(); } } })();
     return () => { c = true; };
   }, [targetProducts, filteredDates, records, dateRange, flagType]);
 
   useEffect(() => {
     if (filteredDates.length === 0 || productNames.length === 0) return;
-    let c = false; (async () => { const r = await apiComputeShopAllShops(records, dateRange.start, dateRange.end, productNames); if (!c) setAllShops(r.allShops); })();
+    let c = false; (async () => { const r = await apiComputeShopAllShops(filteredRecords, dateRange.start, dateRange.end, productNames); if (!c) setAllShops(r.allShops); })();
     return () => { c = true; };
   }, [filteredDates, records, dateRange, productNames]);
 
   useEffect(() => {
     if (filteredDates.length === 0 || productsToAggregate.length === 0) { setShopFilteredProducts(productsToAggregate); return; }
-    let c = false; (async () => { const r = await apiComputeShopFilteredProducts(records, dateRange.start, dateRange.end, productsToAggregate, selectedFilterShops); if (!c) setShopFilteredProducts(r.products); })();
+    let c = false; (async () => { const r = await apiComputeShopFilteredProducts(filteredRecords, dateRange.start, dateRange.end, productsToAggregate, selectedFilterShops); if (!c) setShopFilteredProducts(r.products); })();
     return () => { c = true; };
   }, [filteredDates, records, dateRange, productsToAggregate, selectedFilterShops]);
 
@@ -147,7 +160,7 @@ export function ShopDistribution({ records, selectedDate, initialAliases }: Shop
       let tops: string[]; if (selectedFilterShops.length > 0) tops = selectedFilterShops.map(n => ({ name: n, count: aggregatedData.shop[n] || 0 })).sort((a, b) => b.count - a.count).map(s => s.name);
       else tops = Object.entries(aggregatedData.shop).sort((a, b) => b[1] - a[1]).slice(0, 8).map(e => e[0]);
       const tp = searchKeyword.trim() ? filteredProductNames : shopFilteredProducts;
-      if (tp.length > 0) { let c = false; (async () => { const r = await apiComputeShopTrend(records, dateRange.start, dateRange.end, tops, tp, flagType); if (!c) setTrendData(r.trendData); })(); return () => { c = true; }; }
+      if (tp.length > 0) { let c = false; (async () => { const r = await apiComputeShopTrend(filteredRecords, dateRange.start, dateRange.end, tops, tp, flagType); if (!c) setTrendData(r.trendData); })(); return () => { c = true; }; }
     }
   }, [aggregatedData, selectedFilterShops, filteredDates, records, dateRange, searchKeyword, filteredProductNames, shopFilteredProducts, targetProducts, flagType]);
 

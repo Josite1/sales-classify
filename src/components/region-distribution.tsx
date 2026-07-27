@@ -204,6 +204,18 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
     }
   }, [selectedDate, timePeriod, customStart, customEnd]);
 
+  const filteredRecords = useMemo((): AllRecords => {
+    if (!dateRange.start || !dateRange.end) return records;
+    const f: AllRecords = {};
+    for (const [d, r] of Object.entries(records)) {
+      if (d >= dateRange.start && d <= dateRange.end) f[d] = r;
+    }
+    return f;
+  }, [records, dateRange]);
+
+  const regionCacheRef = useRef<Map<string, any>>(new Map());
+  useEffect(() => { regionCacheRef.current.clear(); }, [records]);
+
   const filteredDates = useMemo(() => {
     if (!dateRange.start || !dateRange.end) return [];
     return Object.keys(records).sort().filter(d => d >= dateRange.start && d <= dateRange.end);
@@ -214,7 +226,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
     if (filteredDates.length === 0 || Object.keys(records).length === 0) return;
     let cancelled = false;
     (async () => {
-      const result = await apiComputeOptions(records, dateRange.start, dateRange.end, [], [], aliases);
+      const result = await apiComputeOptions(filteredRecords, dateRange.start, dateRange.end, [], [], aliases);
       if (!cancelled) {
         setAllProductNames(result.allProducts);
         const names = result.allProducts;
@@ -252,16 +264,18 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
   // Fetch region aggregation from backend
   useEffect(() => {
     if (targetProducts.length === 0 || filteredDates.length === 0 || Object.keys(records).length === 0) { setAggregatedData(null); return; }
+    const cacheKey = `agg|${dateRange.start}|${dateRange.end}|${[...targetProducts].sort()}|${flagType}`;
+    const cached = regionCacheRef.current.get(cacheKey);
+    if (cached) { setAggregatedData(cached); return; }
     let cancelled = false;
     setLoading(true);
-    // Show loading animation on existing chart
     if (chartInstanceRef.current && !chartInstanceRef.current.isDisposed()) {
       chartInstanceRef.current.showLoading({ text: '加载中...', color: '#14b8a6', maskColor: 'rgba(255,255,255,0.7)', fontSize: 14 });
     }
     (async () => {
       try {
-        const result = await apiComputeRegionAggregation(records, dateRange.start, dateRange.end, targetProducts, flagType);
-        if (!cancelled) { setAggregatedData(result); }
+        const result = await apiComputeRegionAggregation(filteredRecords, dateRange.start, dateRange.end, targetProducts, flagType);
+        if (!cancelled) { regionCacheRef.current.set(cacheKey, result); setAggregatedData(result); }
       } catch (e) { if (!cancelled) setAggregatedData(null); }
       finally {
         if (!cancelled) {
@@ -283,7 +297,7 @@ export function RegionDistribution({ records, selectedDate, initialAliases }: Re
     let cancelled = false;
     (async () => {
       try {
-        const result = await apiComputeRegionTrend(records, dateRange.start, dateRange.end, topRegions, targetProducts, flagType);
+        const result = await apiComputeRegionTrend(filteredRecords, dateRange.start, dateRange.end, topRegions, targetProducts, flagType);
         if (!cancelled) setTrendData(result.trendData);
       } catch (e) { if (!cancelled) setTrendData([]); }
     })();
