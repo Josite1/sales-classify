@@ -128,6 +128,29 @@ def get_red_flag_reasons(item: Dict) -> Dict[str, int]:
     return {}
 
 
+def collect_other_details(item: Dict) -> List[Dict]:
+    """从产品红色旗子备注分类中收集「其他」明细（产品级）。"""
+    remark_flags = item.get('客服备注分类', {}) or {}
+    red_remarks = remark_flags.get('红色旗子', {}) or {}
+    other_val = red_remarks.get('其他')
+    if isinstance(other_val, dict) and isinstance(other_val.get('明细'), list):
+        return list(other_val['明细'])
+    return []
+
+
+def apply_auto_classification(reason_agg: Dict[str, int], other_details: List[Dict]) -> Dict[str, int]:
+    """将「其他」明细按关键词自动归类，调整原因计数（返回新 dict，不修改原 dict）。"""
+    result = dict(reason_agg)
+    if not other_details:
+        return result
+    keyword_list = get_reason_keyword_list()
+    classified = classify_other_details(other_details, keyword_list)
+    for category, count in classified.items():
+        result['其他'] = max(0, result.get('其他', 0) - count)
+        result[category] = result.get(category, 0) + count
+    return result
+
+
 def get_remark_by_flag(item: Dict, flag_type: str) -> Dict:
     remark_flags = item.get('客服备注分类', {}) or {}
     return remark_flags.get(flag_type, {}) or {}
@@ -293,6 +316,7 @@ def compute_day_summary(date_str: str, records: Dict) -> Optional[Dict]:
     red_flags = 0
     product_breakdown = []
     reason_agg = {}
+    other_details_all: List[Dict] = []
 
     for name, item in record.get('data', {}).items():
         total = get_product_total(item)
@@ -302,9 +326,11 @@ def compute_day_summary(date_str: str, records: Dict) -> Optional[Dict]:
         reasons = get_red_flag_reasons(item)
         for reason, count in reasons.items():
             reason_agg[reason] = reason_agg.get(reason, 0) + count
+        other_details_all.extend(collect_other_details(item))
         product_breakdown.append({'name': name, 'total': total, 'redFlags': rf})
 
     product_breakdown.sort(key=lambda x: x['total'], reverse=True)
+    reason_agg = apply_auto_classification(reason_agg, other_details_all)
     top_reasons = sorted(
         ((k, v) for k, v in reason_agg.items() if not _is_excluded_reason(k)),
         key=lambda x: x[1], reverse=True
@@ -330,6 +356,7 @@ def compute_filtered_summary(
     total_orders = 0
     red_flags = 0
     product_map = {}
+    other_details_all: List[Dict] = []
 
     dates = [d for d in sorted(records.keys()) if start_date <= d <= end_date]
     if not dates:
@@ -372,6 +399,8 @@ def compute_filtered_summary(
             for r, c in reasons.items():
                 product_map[p_name]['reasons'][r] = product_map[p_name]['reasons'].get(r, 0) + c
 
+            other_details_all.extend(collect_other_details(p_data))
+
     if total_orders == 0:
         return None
 
@@ -385,6 +414,8 @@ def compute_filtered_summary(
     for v in product_map.values():
         for r, c in v['reasons'].items():
             reason_agg[r] = reason_agg.get(r, 0) + c
+
+    reason_agg = apply_auto_classification(reason_agg, other_details_all)
 
     top_reasons = sorted(
         ((k, v) for k, v in reason_agg.items() if not _is_excluded_reason(k)),
