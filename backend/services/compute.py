@@ -14,6 +14,11 @@ from typing import Any, Dict, List, Optional, Tuple
 # 「Top 异常原因」需要排除的状态类分类（非真实异常）
 EXCLUDED_TOP_REASONS = {'已反馈'}
 
+
+def _is_excluded_reason(reason: str) -> bool:
+    """判断是否为应排除的「状态类」原因（如已反馈等）。"""
+    return reason in EXCLUDED_TOP_REASONS or '已反馈' in reason
+
 # 关键词规则缓存（售后原因）
 _reason_keyword_cache: Dict[str, Any] = {'list': None, 'ts': 0.0}
 _REASON_KEYWORD_TTL = 30.0  # 秒
@@ -37,8 +42,10 @@ def get_reason_keyword_list() -> List[Tuple[str, str]]:
                     keyword_list.append((kw, category))
         _reason_keyword_cache['list'] = keyword_list
         _reason_keyword_cache['ts'] = now
+        print(f"[DIAG:auto-classify] 加载关键词规则 {len(rules)} 条, 关键词 {len(keyword_list)} 个")
         return keyword_list
-    except Exception:
+    except Exception as e:
+        print(f"[DIAG:auto-classify] 加载关键词规则失败: {e}")
         return cached or []
 
 
@@ -299,7 +306,7 @@ def compute_day_summary(date_str: str, records: Dict) -> Optional[Dict]:
 
     product_breakdown.sort(key=lambda x: x['total'], reverse=True)
     top_reasons = sorted(
-        ((k, v) for k, v in reason_agg.items() if k not in EXCLUDED_TOP_REASONS),
+        ((k, v) for k, v in reason_agg.items() if not _is_excluded_reason(k)),
         key=lambda x: x[1], reverse=True
     )[:10]
 
@@ -380,7 +387,7 @@ def compute_filtered_summary(
             reason_agg[r] = reason_agg.get(r, 0) + c
 
     top_reasons = sorted(
-        ((k, v) for k, v in reason_agg.items() if k not in EXCLUDED_TOP_REASONS),
+        ((k, v) for k, v in reason_agg.items() if not _is_excluded_reason(k)),
         key=lambda x: x[1], reverse=True
     )[:10]
 
@@ -561,10 +568,22 @@ def _compute_single_day_summary(
         dn = get_product_display_name(p_name, aliases)
         result['products'][dn] = result['products'].get(dn, 0) + p_total
 
+    # 兜底：店铺级「其他」明细缺失时，从产品级「其他」明细收集（保证自动归类可用）
+    if not other_details_all:
+        for p_name, p_data in record.get('data', {}).items():
+            if sel_products and p_name not in sel_products:
+                continue
+            remark_flags = p_data.get('客服备注分类', {}) or {}
+            red_remarks = remark_flags.get('红色旗子', {}) or {}
+            other_val = red_remarks.get('其他')
+            if isinstance(other_val, dict) and isinstance(other_val.get('明细'), list):
+                other_details_all.extend(other_val['明细'])
+
     # 关键词自动归类：将「其他」明细按 /admin/keywords 规则归入对应分类
     if other_details_all:
         keyword_list = get_reason_keyword_list()
         classified = classify_other_details(other_details_all, keyword_list)
+        print(f"[DIAG:auto-classify] {date_str} 收集「其他」明细 {len(other_details_all)} 条, 归类 {sum(classified.values())} 条 -> {classified}")
         for category, count in classified.items():
             result['reasons']['其他'] = max(0, result['reasons'].get('其他', 0) - count)
             result['reasons'][category] = result['reasons'].get(category, 0) + count
