@@ -5,9 +5,57 @@ Pure functions: given input, return output. No side effects.
 """
 import re
 import json
+import time
 from collections import defaultdict
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional, Tuple
+
+
+# 「Top 异常原因」需要排除的状态类分类（非真实异常）
+EXCLUDED_TOP_REASONS = {'已反馈'}
+
+# 关键词规则缓存（售后原因）
+_reason_keyword_cache: Dict[str, Any] = {'list': None, 'ts': 0.0}
+_REASON_KEYWORD_TTL = 30.0  # 秒
+
+
+def get_reason_keyword_list() -> List[Tuple[str, str]]:
+    """加载售后原因关键词规则，返回 [(关键词, 分类), ...]（按规则顺序，带短缓存）。"""
+    now = time.time()
+    cached = _reason_keyword_cache['list']
+    if cached is not None and now - _reason_keyword_cache['ts'] < _REASON_KEYWORD_TTL:
+        return cached
+    try:
+        from services.keyword_rules import get_reason_rules
+        rules = get_reason_rules()
+        keyword_list: List[Tuple[str, str]] = []
+        for rule in rules:
+            category = rule.get('category', '')
+            for kw in (rule.get('keywords') or '').split('-'):
+                kw = kw.strip()
+                if kw:
+                    keyword_list.append((kw, category))
+        _reason_keyword_cache['list'] = keyword_list
+        _reason_keyword_cache['ts'] = now
+        return keyword_list
+    except Exception:
+        return cached or []
+
+
+def classify_other_details(other_details: List[Dict], keyword_list: List[Tuple[str, str]]) -> Dict[str, int]:
+    """对「其他」明细按关键词归类，返回 {分类: 匹配条数}（首个匹配生效）。"""
+    classified: Dict[str, int] = {}
+    if not other_details:
+        return classified
+    for detail in other_details:
+        text = detail.get('客服备注', '') or ''
+        if not text:
+            continue
+        for keyword, category in keyword_list:
+            if keyword and keyword in text:
+                classified[category] = classified.get(category, 0) + 1
+                break
+    return classified
 
 
 # ==================== Data extraction helpers ====================
@@ -250,7 +298,10 @@ def compute_day_summary(date_str: str, records: Dict) -> Optional[Dict]:
         product_breakdown.append({'name': name, 'total': total, 'redFlags': rf})
 
     product_breakdown.sort(key=lambda x: x['total'], reverse=True)
-    top_reasons = sorted(reason_agg.items(), key=lambda x: x[1], reverse=True)[:10]
+    top_reasons = sorted(
+        ((k, v) for k, v in reason_agg.items() if k not in EXCLUDED_TOP_REASONS),
+        key=lambda x: x[1], reverse=True
+    )[:10]
 
     return {
         'date': date_str,
@@ -328,7 +379,10 @@ def compute_filtered_summary(
         for r, c in v['reasons'].items():
             reason_agg[r] = reason_agg.get(r, 0) + c
 
-    top_reasons = sorted(reason_agg.items(), key=lambda x: x[1], reverse=True)[:10]
+    top_reasons = sorted(
+        ((k, v) for k, v in reason_agg.items() if k not in EXCLUDED_TOP_REASONS),
+        key=lambda x: x[1], reverse=True
+    )[:10]
 
     return {
         'totalOrders': total_orders,
@@ -444,6 +498,8 @@ def _compute_single_day_summary(
     if not record:
         return result
 
+    other_details_all: List[Dict] = []
+
     for p_name, p_data in record.get('data', {}).items():
         if sel_products and p_name not in sel_products:
             continue
@@ -475,6 +531,8 @@ def _compute_single_day_summary(
                             result['reasons'][reason] = result['reasons'].get(reason, 0) + int(val)
                         elif isinstance(val, dict) and '订单数' in val:
                             result['reasons'][reason] = result['reasons'].get(reason, 0) + val['订单数']
+                            if reason == '其他' and isinstance(val.get('明细'), list):
+                                other_details_all.extend(val['明细'])
 
             if flag_count == 0:
                 continue
@@ -502,6 +560,14 @@ def _compute_single_day_summary(
 
         dn = get_product_display_name(p_name, aliases)
         result['products'][dn] = result['products'].get(dn, 0) + p_total
+
+    # 关键词自动归类：将「其他」明细按 /admin/keywords 规则归入对应分类
+    if other_details_all:
+        keyword_list = get_reason_keyword_list()
+        classified = classify_other_details(other_details_all, keyword_list)
+        for category, count in classified.items():
+            result['reasons']['其他'] = max(0, result['reasons'].get('其他', 0) - count)
+            result['reasons'][category] = result['reasons'].get(category, 0) + count
 
     return result
 
