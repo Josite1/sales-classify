@@ -575,31 +575,31 @@ export default function DateRecordsPanel({
               </div>
             )}
             {flatDateList.length > LIST_PAGE_SIZE && (
-              <div className="animate-paginate-in flex items-center justify-center gap-0.5 px-3 py-2.5 border-t border-primary/10 bg-gradient-to-r from-transparent via-primary/[0.02] to-transparent">
+              <div className="animate-paginate-in flex items-center justify-center gap-0.5 px-1.5 py-2.5 border-t border-primary/10 bg-gradient-to-r from-transparent via-primary/[0.02] to-transparent">
                 {/* Previous */}
                 <button
                   type="button"
                   disabled={safePage <= 1}
                   onClick={() => setCurrentPage((p) => Math.max(p - 1, 1))}
-                  className="h-8 w-8 flex items-center justify-center rounded-lg text-sm text-muted-foreground hover:bg-primary/8 hover:text-primary disabled:opacity-25 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground transition-all duration-200"
+                  className="h-6 w-6 flex items-center justify-center rounded-md text-xs text-muted-foreground hover:bg-primary/8 hover:text-primary disabled:opacity-25 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground transition-all duration-200 shrink-0"
                   title="上一页"
                 >
-                  <ChevronLeft className="h-4 w-4" />
+                  <ChevronLeft className="h-3.5 w-3.5" />
                 </button>
 
                 {/* Page numbers */}
                 {(() => {
                   const pages: (number | 'ellipsis')[] = [];
-                  if (totalPages <= 7) {
+                  if (totalPages <= 5) {
                     for (let i = 1; i <= totalPages; i++) pages.push(i);
-                  } else if (safePage <= 4) {
-                    [1, 2, 3, 4, 5].forEach((i) => pages.push(i));
+                  } else if (safePage <= 3) {
+                    [1, 2, 3, 4].forEach((i) => pages.push(i));
                     pages.push('ellipsis');
                     pages.push(totalPages);
-                  } else if (safePage >= totalPages - 3) {
+                  } else if (safePage >= totalPages - 2) {
                     pages.push(1);
                     pages.push('ellipsis');
-                    [totalPages - 4, totalPages - 3, totalPages - 2, totalPages - 1, totalPages].forEach((i) => pages.push(i));
+                    [totalPages - 3, totalPages - 2, totalPages - 1, totalPages].forEach((i) => pages.push(i));
                   } else {
                     pages.push(1);
                     pages.push('ellipsis');
@@ -610,7 +610,7 @@ export default function DateRecordsPanel({
                   return pages.map((page, idx) => {
                     if (page === 'ellipsis') {
                       return (
-                        <span key={`ellipsis-${idx}`} className="h-8 w-7 flex items-center justify-center text-xs text-muted-foreground/50 tracking-widest select-none">
+                        <span key={`ellipsis-${idx}`} className="h-6 w-4 flex items-center justify-center text-[10px] text-muted-foreground/50 tracking-widest select-none shrink-0">
                           ···
                         </span>
                       );
@@ -621,7 +621,7 @@ export default function DateRecordsPanel({
                         key={page}
                         type="button"
                         onClick={() => setCurrentPage(page)}
-                        className={`h-8 w-8 flex items-center justify-center rounded-lg text-sm font-normal transition-all duration-200 tabular-nums ${
+                        className={`h-6 w-6 flex items-center justify-center rounded-md text-xs font-normal transition-all duration-200 tabular-nums shrink-0 ${
                           isActive
                             ? 'bg-primary text-primary-foreground shadow-md shadow-primary/25 scale-105'
                             : 'text-muted-foreground hover:bg-primary/6 hover:text-foreground'
@@ -638,10 +638,10 @@ export default function DateRecordsPanel({
                   type="button"
                   disabled={safePage >= totalPages}
                   onClick={() => setCurrentPage((p) => Math.min(p + 1, totalPages))}
-                  className="h-8 w-8 flex items-center justify-center rounded-lg text-sm text-muted-foreground hover:bg-primary/8 hover:text-primary disabled:opacity-25 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground transition-all duration-200"
+                  className="h-6 w-6 flex items-center justify-center rounded-md text-xs text-muted-foreground hover:bg-primary/8 hover:text-primary disabled:opacity-25 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:text-muted-foreground transition-all duration-200 shrink-0"
                   title="下一页"
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronRight className="h-3.5 w-3.5" />
                 </button>
               </div>
             )}

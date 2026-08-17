@@ -705,6 +705,12 @@ def merge_product_data(a: Dict, b: Dict) -> Dict:
         b_val = b[key]
         if isinstance(b_val, (int, float)):
             result[key] = (result.get(key, 0) or 0) + int(b_val)
+        elif isinstance(b_val, list):
+            # 列表（如"其他"备注的明细）需拼接而非覆盖，确保跨日期累加
+            if key in result and isinstance(result[key], list):
+                result[key] = result[key] + b_val
+            else:
+                result[key] = b_val
         elif isinstance(b_val, dict):
             if key in result and isinstance(result[key], dict):
                 result[key] = merge_product_data(result[key], b_val)

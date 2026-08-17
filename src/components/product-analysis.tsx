@@ -18,12 +18,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
   Package, Flag, AlertTriangle, Search, Pencil, X, Check, ChevronsUpDown,
-  ChevronLeft, ChevronRight, Store, CornerDownLeft, Plus, Trash2, Loader2,
+  ChevronLeft, ChevronRight, Store, CornerDownLeft, Plus, Trash2, Loader2, Download,
 } from 'lucide-react';
+import * as XLSX from 'xlsx';
 import type { AllRecords, ProductAliases, RemarkOtherDetail } from '@/lib/types';
 import { loadProductAliases } from '@/lib/storage';
 import { setProductAlias } from '@/lib/records-service';
-import { apiComputeProductAnalysis, apiComputeOptions, appendReasonRule } from '@/lib/api';
+import { apiComputeProductAnalysis, apiComputeOptions, appendReasonRule, fetchKeywordRules } from '@/lib/api';
 
 // Register brutalist theme
 if (typeof window !== 'undefined') { registerBrutalTheme(echarts); }
@@ -76,8 +77,9 @@ const QTY_FLAG_OPTIONS: { value: string; label: string }[] = [
   { value: '紫色旗子', label: '紫旗' },
   { value: '黑色旗子', label: '黑旗' },
 ];
-const REMARK_PAGE_SIZE = 10;
+const REMARK_PAGE_SIZE = 9;
 const MAX_DATE_RANGE_DAYS = 90;
+const OTHER_REMARK_WARN_THRESHOLD = 30; // 「其他」明细超过该数量时提示归类
 
 interface ProductAnalysisProps {
   records: AllRecords; selectedDate?: string | null; initialAliases?: ProductAliases; readOnly?: boolean;
@@ -110,6 +112,7 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
   const [remarkFlagType, setRemarkFlagType] = useState<string>('红色旗子');
   const [remarkPage, setRemarkPage] = useState(0);
   const [manualClassification, setManualClassification] = useState<Record<string, string>>({});
+  const [reasonRules, setReasonRules] = useState<{ category: string; keywords: string }[]>([]);
   const [editingOrderId, setEditingOrderId] = useState<string | null>(null);
   const [editCategory, setEditCategory] = useState('');
   const [editKeywords, setEditKeywords] = useState('');
@@ -127,6 +130,20 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
 
   // 加载别名
   useEffect(() => { setAliases(initialAliases || loadProductAliases()); }, [initialAliases]);
+
+  // 加载关键词规则（用于「其他」备注自动归类）
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const rules = await fetchKeywordRules();
+        if (!cancelled) setReasonRules(rules.reasons || []);
+      } catch {
+        // 静默失败，自动归类不可用时仍可手动归类
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   // 日期跟随
   useEffect(() => {
@@ -349,7 +366,51 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
     return [];
   }, [productData, remarkFlagType]);
 
-  // 手动归类合并
+  // 关键词 → 分类 映射（来自 /admin/keywords 的售后原因规则）
+  const keywordMap = useMemo(() => {
+    const map: { keyword: string; category: string }[] = [];
+    for (const rule of reasonRules) {
+      const kws = (rule.keywords || '').split('-').map(s => s.trim()).filter(Boolean);
+      for (const kw of kws) {
+        map.push({ keyword: kw, category: rule.category });
+      }
+    }
+    return map;
+  }, [reasonRules]);
+
+  // 依据关键词自动归类「其他」备注
+  const autoClassification = useMemo(() => {
+    const map: Record<string, string> = {};
+    if (keywordMap.length === 0) return map;
+    for (const detail of otherDetails) {
+      const text = detail.客服备注 || '';
+      for (const { keyword, category } of keywordMap) {
+        if (text.includes(keyword)) {
+          map[detail.订单号] = category;
+          break;
+        }
+      }
+    }
+    return map;
+  }, [otherDetails, keywordMap]);
+
+  // 有效归类 = 自动归类 + 手动归类（手动优先）
+  const effectiveClassification = useMemo(() => {
+    return { ...autoClassification, ...manualClassification };
+  }, [autoClassification, manualClassification]);
+
+  // 已归类（自动+手动）明细数
+  const classifiedCount = useMemo(() => {
+    return otherDetails.filter(d => effectiveClassification[d.订单号]).length;
+  }, [otherDetails, effectiveClassification]);
+
+  // 未归类明细（「其他」中仍未被归类的），与图表「其他」柱子口径一致
+  const unclassifiedDetails = useMemo(() => {
+    return otherDetails.filter(d => !effectiveClassification[d.订单号]);
+  }, [otherDetails, effectiveClassification]);
+  const unclassifiedCount = unclassifiedDetails.length;
+
+  // 归类合并（自动 + 手动）
   const mergedRemarkData = useMemo(() => {
     const base = { ...remarkDataByFlag };
     if (!productData || otherDetails.length === 0) return base;
@@ -357,26 +418,47 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
     const otherKey = otherKeys.length > 0 ? otherKeys[0] : null;
     otherDetails.forEach((detail) => {
       const orderId = detail.订单号;
-      const manualCat = manualClassification[orderId];
-      if (manualCat) {
+      const cat = effectiveClassification[orderId];
+      if (cat) {
         if (otherKey && base[otherKey] > 0) base[otherKey] = Math.max(0, base[otherKey] - 1);
-        base[manualCat] = (base[manualCat] || 0) + 1;
+        base[cat] = (base[cat] || 0) + 1;
       }
     });
     return base;
-  }, [remarkDataByFlag, otherDetails, manualClassification, productData]);
+  }, [remarkDataByFlag, otherDetails, effectiveClassification, productData]);
 
   const remarkBarData = useMemo(() =>
     Object.entries(mergedRemarkData).map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
     [mergedRemarkData]);
 
-  const totalRemarkPages = Math.max(1, Math.ceil(otherDetails.length / REMARK_PAGE_SIZE));
+  const totalRemarkPages = Math.max(1, Math.ceil(unclassifiedDetails.length / REMARK_PAGE_SIZE));
   const pagedOtherDetails = useMemo(() => {
-    const start = remarkPage * REMARK_PAGE_SIZE;
-    return otherDetails.slice(start, start + REMARK_PAGE_SIZE);
-  }, [otherDetails, remarkPage]);
+    const start = Math.min(remarkPage, totalRemarkPages - 1) * REMARK_PAGE_SIZE;
+    return unclassifiedDetails.slice(start, start + REMARK_PAGE_SIZE);
+  }, [unclassifiedDetails, remarkPage, totalRemarkPages]);
 
-  useEffect(() => { setRemarkPage(0); }, [remarkFlagType, selectedProduct]);
+  useEffect(() => { setRemarkPage(0); }, [remarkFlagType, selectedProduct, unclassifiedDetails.length]);
+
+  // 导出「其他」备注明细为 Excel，默认文件名：产品名-日期范围
+  const handleExportOtherDetails = useCallback(() => {
+    if (otherDetails.length === 0) return;
+    const productName = aliases[selectedProduct]?.alias || selectedProduct || '产品';
+    const rangeStr = dateRange
+      ? (dateRange.start === dateRange.end ? dateRange.start : `${dateRange.start}~${dateRange.end}`)
+      : '全部日期';
+    const headers = ['订单号', '品类', '客服备注', '归类'];
+    const rows = otherDetails.map(d => [
+      d.订单号 ?? '',
+      d.品类 ?? '',
+      d.客服备注 ?? '',
+      effectiveClassification[d.订单号] || '',
+    ]);
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws['!cols'] = [{ wch: 22 }, { wch: 16 }, { wch: 50 }, { wch: 16 }];
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, '其他备注明细');
+    XLSX.writeFile(wb, `${productName}-${rangeStr}.xlsx`);
+  }, [otherDetails, aliases, selectedProduct, dateRange, effectiveClassification]);
 
   const handleOpenEdit = useCallback(() => {
     const current = aliases[selectedProduct];
@@ -439,7 +521,8 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
     if (keywords && keywords.length >= 1) {
       try {
         setSavingRule(true);
-        await appendReasonRule(category, keywords);
+        const res = await appendReasonRule(category, keywords);
+        if (res?.reasons) setReasonRules(res.reasons);
         // Auto-classify other unclassified remarks containing the same keyword
         setManualClassification(prev => {
           const next = { ...prev };
@@ -470,9 +553,9 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
 
   const availableCategories = useMemo(() => {
     const cats = new Set(Object.keys(remarkDataByFlag));
-    Object.values(manualClassification).forEach(c => cats.add(c));
+    Object.values(effectiveClassification).forEach(c => cats.add(c));
     return Array.from(cats).sort();
-  }, [remarkDataByFlag, manualClassification]);
+  }, [remarkDataByFlag, effectiveClassification]);
 
   // Chart rendering
   const renderChart = useCallback((ref: React.RefObject<HTMLDivElement | null>, instanceRef: React.MutableRefObject<echarts.ECharts | null>, data: any[], chartType: QtyChartType) => {
@@ -543,7 +626,8 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
     if (!reasonBarChartRef.current || reasonBarChartRef.current.isDisposed()) { reasonBarChartRef.current = echarts.init(reasonBarRef.current, 'brutal'); }
     const chart = reasonBarChartRef.current;
     const sortedReasons = [...remarkBarData].sort((a, b) => a.value - b.value);
-    chart.setOption({ tooltip: { ...TOOLTIP_STYLE, trigger: 'axis', axisPointer: { type: 'shadow' } }, grid: { left: '3%', right: '8%', bottom: '3%', top: '3%', containLabel: true }, xAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 11 }, splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }, axisLine: { show: false } }, yAxis: { type: 'category', data: sortedReasons.map(d => d.name), axisLabel: { color: '#475569', fontSize: 11, width: 80, overflow: 'truncate' }, axisLine: { show: false }, axisTick: { show: false } }, series: [{ type: 'bar', data: sortedReasons.map((d, i) => ({ value: d.value, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: VIVID_COLORS[(i + 2) % VIVID_COLORS.length] }, { offset: 1, color: VIVID_COLORS[(i + 3) % VIVID_COLORS.length] }]) } })), barWidth: '60%', label: { show: true, position: 'right' as const, fontSize: 11, fontWeight: 'bold', color: '#475569', formatter: '{c}' } }] }, true);
+    chart.setOption({ tooltip: { ...TOOLTIP_STYLE, trigger: 'axis', axisPointer: { type: 'shadow' } }, grid: { left: '3%', right: '10%', bottom: '3%', top: '3%', containLabel: true }, xAxis: { type: 'value', axisLabel: { color: '#94a3b8', fontSize: 11 }, splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } }, axisLine: { show: false } }, yAxis: { type: 'category', data: sortedReasons.map(d => d.name), axisLabel: { color: '#475569', fontSize: 11, width: 80, overflow: 'truncate' }, axisLine: { show: false }, axisTick: { show: false } }, series: [{ type: 'bar', data: sortedReasons.map((d, i) => ({ value: d.value, itemStyle: { color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [{ offset: 0, color: VIVID_COLORS[(i + 2) % VIVID_COLORS.length] }, { offset: 1, color: VIVID_COLORS[(i + 3) % VIVID_COLORS.length] }]) } })), barWidth: '60%', label: { show: true, position: 'right' as const, fontSize: 11, fontWeight: 'bold', color: '#475569', formatter: '{c}' } }] }, true);
+    chart.resize();
     const handleResize = () => chart.resize();
     window.addEventListener('resize', handleResize);
     return () => window.removeEventListener('resize', handleResize);
@@ -680,7 +764,7 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
           </div>
 
           {remarkBarData.length > 0 && (
-            <Card className="brutal-card-lift mt-6 rounded-xl shadow-sm border-t-4 border-t-red-400/60">
+            <Card className="brutal-card-lift mt-6 rounded-xl shadow-sm border-t-4 border-t-red-400/60 overflow-hidden">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-sm font-bold flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-destructive" />客服备注分类</CardTitle>
@@ -691,26 +775,49 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
                 </div>
                 <CardDescription className="text-xs">{remarkFlagType}客服备注原因排名（含手动归类）</CardDescription>
               </CardHeader>
-              <CardContent className="px-3"><div ref={reasonBarRef} className="w-full" style={{ height: Math.max(480, remarkBarData.length * 36 + 24) }} /></CardContent>
+              <CardContent className="px-3 pb-3"><div ref={reasonBarRef} className="w-full" style={{ height: Math.max(480, remarkBarData.length * 36 + 24) }} /></CardContent>
             </Card>
           )}
 
           {otherDetails.length > 0 && (
             <Card className="brutal-card-lift mt-6 rounded-xl shadow-sm border-t-4 border-t-orange-400/60">
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm font-bold flex items-center gap-2">
-                  <AlertTriangle className="h-4 w-4 text-amber-500" />&quot;其他&quot;备注明细
-                  <Badge variant="outline" className="text-[10px]">{remarkFlagType}</Badge>
-                  <Badge variant="secondary" className="text-[10px] tabular-nums">共 {otherDetails.length} 条</Badge>
-                </CardTitle>
+                <div className="flex items-center justify-between gap-2 flex-wrap">
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-500" />&quot;其他&quot;备注明细
+                    <Badge variant="outline" className="text-[10px]">{remarkFlagType}</Badge>
+                    <Badge variant="secondary" className="text-[10px] tabular-nums">共 {unclassifiedCount} 条</Badge>
+                    {classifiedCount > 0 && (
+                      <Badge variant="outline" className="text-[10px] tabular-nums text-emerald-600 border-emerald-300">已归类 {classifiedCount} 条</Badge>
+                    )}
+                  </CardTitle>
+                  <Button variant="outline" size="sm" className="h-7 text-xs gap-1.5" onClick={handleExportOtherDetails}>
+                    <Download className="h-3.5 w-3.5" />导出表格
+                  </Button>
+                </div>
+                {unclassifiedCount >= OTHER_REMARK_WARN_THRESHOLD && (
+                  <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-400/40 bg-amber-50/80 px-3 py-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-700 leading-relaxed">
+                      「其他」备注仍有 <b>{unclassifiedCount}</b> 条未归类（共 {otherDetails.length} 条，已归类 {classifiedCount} 条）。建议补充归类规则或逐条手动归类，减少未分类数据。
+                    </p>
+                  </div>
+                )}
               </CardHeader>
               <CardContent>
                 <Table>
-                  <TableHeader><TableRow><TableHead className="w-[80px] text-xs">订单号</TableHead><TableHead className="w-[140px] text-xs">品类</TableHead><TableHead className="text-xs">客服备注</TableHead><TableHead className="w-[200px] text-xs">手动归类</TableHead></TableRow></TableHeader>
+                  <TableHeader><TableRow><TableHead className="w-[80px] text-xs">订单号</TableHead><TableHead className="w-[140px] text-xs">品类</TableHead><TableHead className="text-xs">客服备注</TableHead><TableHead className="w-[200px] text-xs">归类</TableHead></TableRow></TableHeader>
                   <TableBody>
+                    {unclassifiedDetails.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center text-muted-foreground py-8 text-xs">
+                          {otherDetails.length > 0 ? '「其他」备注已全部归类' : '暂无「其他」备注'}
+                        </TableCell>
+                      </TableRow>
+                    )}
                     {pagedOtherDetails.map((detail, idx) => {
                       const orderId = detail.订单号;
-                      const currentCat = manualClassification[orderId] || '';
+                      const currentCat = effectiveClassification[orderId] || '';
                       const isEditing = editingOrderId === orderId;
                       return (
                         <TableRow key={`${orderId}-${idx}`}>
@@ -748,10 +855,10 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
                   </TableBody>
                 </Table>
                 {totalRemarkPages > 1 && (
-                  <div className="flex items-center justify-center gap-2 mt-4">
-                    <Button variant="outline" size="sm" disabled={remarkPage === 0} onClick={() => setRemarkPage(p => p - 1)}><ChevronLeft className="h-4 w-4" /></Button>
-                    <span className="text-xs text-muted-foreground tabular-nums">{remarkPage + 1} / {totalRemarkPages}</span>
-                    <Button variant="outline" size="sm" disabled={remarkPage >= totalRemarkPages - 1} onClick={() => setRemarkPage(p => p + 1)}><ChevronRight className="h-4 w-4" /></Button>
+                  <div className="flex items-center justify-center gap-3 mt-4">
+                    <Button variant="outline" size="sm" disabled={remarkPage === 0} onClick={() => setRemarkPage(p => p - 1)}><ChevronLeft className="h-4 w-4" />上一页</Button>
+                    <span className="text-xs text-muted-foreground tabular-nums">第 {remarkPage + 1} / {totalRemarkPages} 页</span>
+                    <Button variant="outline" size="sm" disabled={remarkPage >= totalRemarkPages - 1} onClick={() => setRemarkPage(p => p + 1)}>下一页<ChevronRight className="h-4 w-4" /></Button>
                   </div>
                 )}
               </CardContent>

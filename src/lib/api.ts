@@ -394,6 +394,10 @@ export async function apiMergeRecords(local: AllRecords, cloud: AllRecords): Pro
 
 // ==================== Keyword Rules API ====================
 
+export async function fetchKeywordRules(): Promise<{ reasons: { category: string; keywords: string }[]; products: { category: string; keywords: string }[] }> {
+  return request('/api/excel/rules/all');
+}
+
 export async function appendReasonRule(category: string, keywords: string): Promise<{ reasons: { category: string; keywords: string }[] }> {
   return request('/api/excel/rules/reasons/append', {
     method: 'POST',
