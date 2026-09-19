@@ -16,7 +16,9 @@ export default function RootLayout({
   const isDev = process.env.COZE_PROJECT_ENV === 'DEV';
 
   return (
-    <html lang="zh-CN">
+    // suppressHydrationWarning: 浏览器扩展（如沉浸式翻译）会往 <html> 注入
+    // data-immersive-translate-page-theme 等属性，导致水合比对失败。仅作用于本元素自身。
+    <html lang="zh-CN" suppressHydrationWarning>
       <body className="antialiased dot-grid-bg">
         <SupabaseConfigProvider>
           {isDev && <Inspector />}

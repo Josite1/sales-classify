@@ -8,6 +8,7 @@ import type { AllRecords, ProductData, ProductAliases } from './types';
 import { loadAllRecords, saveAllRecords, loadProductAliases, saveProductAliases } from './storage';
 import { apiMergeRecords } from './api';
 import { safeFetch } from './fetch-utils';
+import { windowStart } from './constants';
 
 // ==================== Record CRUD ====================
 
@@ -54,7 +55,9 @@ export async function syncToCloud(records: AllRecords, token: string, fullSync =
   const res = await safeFetch('/api/user-records/sync', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'x-session': token },
-    body: JSON.stringify({ records, fullSync }),
+    // windowStart 由客户端按**本地时区**计算并下发：服务端（可能部署在 UTC）自行取"今天"
+    // 会在东八区凌晨 00:00–08:00 期间算错一天，导致边界日被误删。
+    body: JSON.stringify({ records, fullSync, windowStart: windowStart() }),
   });
   const data = await res.json();
   if (!data.success) throw new Error(data.error || 'Sync failed');

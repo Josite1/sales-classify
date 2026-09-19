@@ -171,6 +171,30 @@ def get_shop_count(shop_val: Any) -> int:
     return 0
 
 
+def resolve_product_orders(p_data: Dict, selected_shops: List[str]) -> int:
+    """返回某产品在给定筛选条件下的订单量。
+
+    口径规则（重要）：
+    - 未筛选店铺时，直接取产品级 ``total``。它是唯一在全部日期都完整可信的
+      字段；而 ``店铺分类`` / ``标旗分类`` 等子表在部分历史日期缺失（导入时
+      未写入），若用它们求和会导致总量被大幅低估。
+    - 筛选了店铺时，只能按店铺明细求和（此时语义是"只统计选中的店铺"），
+      并受上述子表完整性的限制。
+    """
+    if not selected_shops:
+        return get_product_total(p_data)
+
+    total = 0
+    shop_stats = p_data.get('店铺分类', {}) or {}
+    for _flag, shops_in_flag in shop_stats.items():
+        if not isinstance(shops_in_flag, dict):
+            continue
+        for s_name, shop_val in shops_in_flag.items():
+            if s_name in selected_shops:
+                total += get_shop_count(shop_val)
+    return total
+
+
 def get_product_qty_stats(product_data: Dict) -> Dict[str, int]:
     result = {}
     qty_data = product_data.get('数量分类', {}) or {}
@@ -368,21 +392,20 @@ def compute_filtered_summary(
             if selected_products and p_name not in selected_products:
                 continue
 
-            p_total = 0
+            p_total = resolve_product_orders(p_data, selected_shops)
             p_red_flags = 0
 
-            shop_stats = p_data.get('店铺分类', {}) or {}
-            # 统一从店铺数据求和，确保筛选/非筛选路径数据一致
-            for flag, shops_in_flag in shop_stats.items():
-                if not isinstance(shops_in_flag, dict):
-                    continue
-                for s_name, shop_val in shops_in_flag.items():
-                    if selected_shops and s_name not in selected_shops:
+            if not selected_shops:
+                # 未筛选店铺：红旗数取自产品级「标旗分类」
+                p_red_flags = get_flag_count(p_data, '红色旗子')
+            else:
+                shop_stats = p_data.get('店铺分类', {}) or {}
+                for flag, shops_in_flag in shop_stats.items():
+                    if flag != '红色旗子' or not isinstance(shops_in_flag, dict):
                         continue
-                    cnt = get_shop_count(shop_val)
-                    p_total += cnt
-                    if flag == '红色旗子':
-                        p_red_flags += cnt
+                    for s_name, shop_val in shops_in_flag.items():
+                        if s_name in selected_shops:
+                            p_red_flags += get_shop_count(shop_val)
 
             if p_total == 0:
                 continue
@@ -462,36 +485,20 @@ def compute_options(
     for s in shops_set:
         shop_count[s] = 0
 
-    # Second pass: compute counts (统一从店铺数据求和)
+    # Second pass: compute counts
     for d in dates:
         record = records[d]
         for p_name, p_data in record.get('data', {}).items():
-            shop_stats = p_data.get('店铺分类', {}) or {}
-
-            if selected_shops:
-                p_total = 0
-                for flag, shops_in_flag in shop_stats.items():
-                    if not isinstance(shops_in_flag, dict):
-                        continue
-                    for s_name, shop_val in shops_in_flag.items():
-                        if s_name in selected_shops:
-                            p_total += get_shop_count(shop_val)
-                if p_total > 0:
-                    product_count[p_name] = product_count.get(p_name, 0) + p_total
-            else:
-                # 统一从店铺数据求和（不再读 p_data['total']）
-                p_total = 0
-                for flag, shops_in_flag in shop_stats.items():
-                    if not isinstance(shops_in_flag, dict):
-                        continue
-                    for s_name, shop_val in shops_in_flag.items():
-                        p_total += get_shop_count(shop_val)
-                if p_total > 0:
-                    product_count[p_name] = product_count.get(p_name, 0) + p_total
+            # 产品计数：未筛选店铺时取产品级 total（唯一在全部日期都完整的字段），
+            # 筛选店铺时才按店铺明细求和。
+            p_total = resolve_product_orders(p_data, selected_shops)
+            if p_total > 0:
+                product_count[p_name] = product_count.get(p_name, 0) + p_total
 
             if selected_products and p_name not in selected_products:
                 continue
 
+            shop_stats = p_data.get('店铺分类', {}) or {}
             for flag, shops_in_flag in shop_stats.items():
                 if not isinstance(shops_in_flag, dict):
                     continue
@@ -542,6 +549,27 @@ def _compute_single_day_summary(
         if sel_products and p_name not in sel_products:
             continue
 
+        # 未筛选店铺：全部指标取自产品级数据。
+        # total 是唯一在全部日期都完整的字段，而 店铺分类/标旗分类 等子表
+        # 在部分历史日期缺失，若用它们求和会大幅低估总量。
+        if not sel_shops:
+            p_base = get_product_total(p_data)
+            if p_base == 0:
+                continue
+            flags_map = get_flags(p_data)
+            result['totalOrders'] += p_base
+            result['redFlags'] += flags_map.get('红色旗子', 0) or 0
+            result['greenFlags'] += flags_map.get('绿色旗子', 0) or 0
+            result['greyFlags'] += flags_map.get('灰色旗子', 0) or 0
+            result['yellowFlags'] += flags_map.get('黄色旗子', 0) or 0
+            result['purpleFlags'] += flags_map.get('紫色旗子', 0) or 0
+            for reason, cnt in get_red_flag_reasons(p_data).items():
+                result['reasons'][reason] = result['reasons'].get(reason, 0) + cnt
+            other_details_all.extend(collect_other_details(p_data))
+            dn = get_product_display_name(p_name, aliases)
+            result['products'][dn] = result['products'].get(dn, 0) + p_base
+            continue
+
         p_total = 0
         p_red = 0
         p_green = 0
@@ -550,13 +578,13 @@ def _compute_single_day_summary(
         p_purple = 0
         shop_stats = p_data.get('店铺分类', {}) or {}
 
-        # 统一从店铺数据求和，确保筛选/非筛选路径数据一致
+        # 筛选了店铺：只能按店铺明细求和（统计口径受子表完整性限制）
         for flag, shops_in_flag in shop_stats.items():
             if not isinstance(shops_in_flag, dict):
                 continue
             flag_count = 0
             for s_name, shop_val in shops_in_flag.items():
-                if sel_shops and s_name not in sel_shops:
+                if s_name not in sel_shops:
                     continue
                 cnt = get_shop_count(shop_val)
                 if cnt == 0:

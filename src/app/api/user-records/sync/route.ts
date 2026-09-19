@@ -9,6 +9,10 @@ import type {
   ShopFlagCategory,
   ProvinceFlagCategory,
 } from '@/lib/types';
+import { windowStart as computeDefaultWindowStart } from '@/lib/constants';
+
+/** YYYY-MM-DD 校验 */
+const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 // ==================== 辅助函数 ====================
 
@@ -223,6 +227,63 @@ async function safeDeleteRecords(
   }
 }
 
+/**
+ * 删除保留窗口外的历史记录：`record_date < cutoffDate` 的全部日期。
+ *
+ * 与 `safeDeleteRecords` 的分工：
+ * - `safeDeleteRecords` 做的是"本地镜像"——删掉云端上本地已经不存在的日期，依赖本地数据完整；
+ * - 本函数做的是"保留策略兜底"——只按日期窗口判定，**与本地数据是否完整无关**。
+ *   两者并存：镜像删除负责用户主动删单日，窗口清理负责"只保留最近 N 天"这条硬规则。
+ *
+ * @param cutoffDate 窗口起点（YYYY-MM-DD，含边界）。早于该日期的记录会被删除。
+ * @returns 被删除的日期数量
+ */
+async function purgeRecordsBefore(
+  client: any,
+  userId: string,
+  cutoffDate: string
+): Promise<number> {
+  const { data: staleRecords, error } = await client
+    .from('user_records')
+    .select('id, record_date')
+    .eq('owner_id', userId)
+    .lt('record_date', cutoffDate);
+
+  if (error) {
+    console.error('[purge] 查询窗口外记录失败:', error.message);
+    return 0;
+  }
+
+  const staleRecordIds = (staleRecords || []).map((r: any) => r.id);
+  if (staleRecordIds.length === 0) return 0;
+
+  const { data: staleProducts } = await client
+    .from('record_products')
+    .select('id')
+    .in('record_id', staleRecordIds);
+
+  const productIds = (staleProducts || []).map((p: any) => p.id);
+
+  // 先删子表再删主表，避免留下孤儿数据
+  await safeDeleteProducts(client, productIds);
+
+  const { error: delError } = await client
+    .from('user_records')
+    .delete()
+    .in('id', staleRecordIds);
+
+  if (delError) {
+    console.error('[purge] 删除窗口外记录失败:', delError.message);
+    return 0;
+  }
+
+  console.log(
+    `[purge] 已清理窗口外数据：${staleRecordIds.length} 天（< ${cutoffDate}），` +
+    `涉及产品 ${productIds.length} 个`
+  );
+  return staleRecordIds.length;
+}
+
 function rowsToProductData(
   products: any[],
   flagsMap: Map<string, any[]>,
@@ -339,9 +400,10 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { records, fullSync } = body as {
+    const { records, fullSync, windowStart: clientWindowStart } = body as {
       records: Record<string, { date: string; data: Record<string, ProductData>; importedAt: number }>;
       fullSync?: boolean;
+      windowStart?: string;
     };
 
     if (!records || typeof records !== 'object') {
@@ -608,7 +670,16 @@ export async function POST(req: NextRequest) {
       await safeDeleteRecords(client, user.id, allLocalDates);
     }
 
-    return NextResponse.json({ success: true, synced: dateEntries.length });
+    // ---------- 保留策略：清理窗口外的历史数据 ----------
+    // 无论是否全量同步都执行，保证"只保留最近 N 天"始终成立。
+    // 优先采用客户端按本地时区算出的窗口起点；缺失或格式非法时退回服务端本地计算。
+    const cutoffDate =
+      typeof clientWindowStart === 'string' && DATE_PATTERN.test(clientWindowStart)
+        ? clientWindowStart
+        : computeDefaultWindowStart();
+    const purgedDates = await purgeRecordsBefore(client, user.id, cutoffDate);
+
+    return NextResponse.json({ success: true, synced: dateEntries.length, purgedDates, cutoffDate });
   } catch (err) {
     const msg = err instanceof Error ? err.message : 'Unknown error';
     console.error('Sync error:', msg);

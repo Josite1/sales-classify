@@ -177,3 +177,15 @@ src/lib/func_merge.ts
 backend/railway.json
 .workbuddy/
 backend/venv/
+
+# 本地依赖备份与包管理器缓存（体积大，勿入库）
+node_modules.bak/
+.npm-cache/
+
+# 诊断产物目录：脚本内含真实 Supabase 端点/anon key，
+# 且含业务数据导出（云端全表快照、备份 JSON），本仓库为公开仓库，整体忽略。
+# 需要留档时请另存到私有位置。
+_diag/
+
+# 内部分析报告：含真实经营数据（订单量、日期区间等），公开仓库不入库，仅本地留存。
+docs/
