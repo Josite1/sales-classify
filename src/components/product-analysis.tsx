@@ -30,6 +30,11 @@ import { apiComputeProductAnalysis, apiComputeOptions, appendReasonRule, fetchKe
 if (typeof window !== 'undefined') { registerBrutalTheme(echarts); }
 
 /* ========== 日期范围工具函数（纯 UI 展示） ========== */
+/** 按本地时区格式化为 YYYY-MM-DD（不要用 toISOString，UTC 会让东八区差一天） */
+function fmtLocalDate(dt: Date): string {
+  return `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}-${String(dt.getDate()).padStart(2, '0')}`;
+}
+
 function getISOWeekRange(dateStr: string): { start: string; end: string } {
   const d = new Date(dateStr);
   const monday = d.getDate() - (d.getDay() === 0 ? 6 : d.getDay() - 1);
@@ -37,8 +42,7 @@ function getISOWeekRange(dateStr: string): { start: string; end: string } {
   mon.setDate(monday);
   const sun = new Date(mon);
   sun.setDate(mon.getDate() + 6);
-  const fmt = (dt: Date) => dt.toISOString().slice(0, 10);
-  return { start: fmt(mon), end: fmt(sun) };
+  return { start: fmtLocalDate(mon), end: fmtLocalDate(sun) };
 }
 
 function getMonthRange(dateStr: string): { start: string; end: string } {
@@ -123,6 +127,7 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
   const [globalTotal, setGlobalTotal] = useState(0);
   const [stats, setStats] = useState<{ total: number; qtyStats: Record<string, number>; singleRatio: string; topQty: string; topQtyVal: number } | null>(null);
   const [loading, setLoading] = useState(false);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [productOptions, setProductOptions] = useState<{ label: string; value: string; count: number }[]>([]);
   const [shopOptions, setShopOptions] = useState<{ label: string; value: string; count: number }[]>([]);
   const [allProductNames, setAllProductNames] = useState<string[]>([]);
@@ -177,23 +182,52 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
 
   // 日期范围
   const dateRange = useMemo(() => {
-    switch (timeMode) {
-      case 'day': return (selectedDate || customStart) ? { start: selectedDate || customStart, end: selectedDate || customStart } : null;
-      case 'week': return customStart && customEnd ? { start: customStart, end: customEnd } : null;
-      case 'month': return customStart && customEnd ? { start: customStart, end: customEnd } : null;
-      case 'custom': {
-        if (!customStart || !customEnd) return null;
-        const start = new Date(customStart); const end = new Date(customEnd);
-        const diffDays = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
-        if (diffDays >= MAX_DATE_RANGE_DAYS) {
-          const clampedEnd = new Date(start); clampedEnd.setDate(clampedEnd.getDate() + MAX_DATE_RANGE_DAYS - 1);
-          return { start: customStart, end: clampedEnd.toISOString().slice(0, 10) };
-        }
-        return { start: customStart, end: customEnd };
+    // 统一收敛日期区间：允许只填一端（编辑中途不闪断），起止写反自动纠正，超过上限自动截断
+    const normalize = (rawStart: string, rawEnd: string): { start: string; end: string } | null => {
+      let start = rawStart || rawEnd;
+      let end = rawEnd || rawStart;
+      if (!start || !end) return null;
+      if (start > end) { const t = start; start = end; end = t; }
+      const startDate = new Date(`${start}T00:00:00`);
+      const endDate = new Date(`${end}T00:00:00`);
+      if (Number.isNaN(startDate.getTime()) || Number.isNaN(endDate.getTime())) return null;
+      const spanDays = Math.round((endDate.getTime() - startDate.getTime()) / 86400000);
+      if (spanDays >= MAX_DATE_RANGE_DAYS) {
+        const clampedEnd = new Date(startDate);
+        clampedEnd.setDate(clampedEnd.getDate() + MAX_DATE_RANGE_DAYS - 1);
+        return { start, end: fmtLocalDate(clampedEnd) };
       }
+      return { start, end };
+    };
+
+    switch (timeMode) {
+      case 'day': {
+        const day = selectedDate || customStart || customEnd || '';
+        return day ? { start: day, end: day } : null;
+      }
+      case 'week':
+      case 'month':
+      case 'custom':
+        return normalize(customStart, customEnd);
       default: return null;
     }
   }, [selectedDate, timeMode, customStart, customEnd]);
+
+  // 记住最近一次有效的日期范围，供切到「自定义」时兜底预填
+  const lastRangeRef = useRef<{ start: string; end: string } | null>(null);
+  useEffect(() => { if (dateRange) lastRangeRef.current = dateRange; }, [dateRange]);
+
+  const handleTimeModeChange = useCallback((mode: TimeMode) => {
+    if (mode === 'custom' && (!customStart || !customEnd)) {
+      const dates = Object.keys(records).sort();
+      const latest = dates[dates.length - 1];
+      const fallback = lastRangeRef.current
+        || (selectedDate ? { start: selectedDate, end: selectedDate } : null)
+        || (latest ? { start: latest, end: latest } : null);
+      if (fallback) { setCustomStart(fallback.start); setCustomEnd(fallback.end); }
+    }
+    setTimeMode(mode);
+  }, [customStart, customEnd, selectedDate, records]);
 
   const filteredRecords = useMemo((): AllRecords => {
     if (!dateRange) return records;
@@ -212,12 +246,17 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
     if (!dateRange || Object.keys(records).length === 0) return;
     let cancelled = false;
     (async () => {
-      const result = await apiComputeOptions(filteredRecords, dateRange!.start, dateRange!.end, selectedProduct ? [selectedProduct] : [], selectedShops, aliases);
-      if (!cancelled) {
-        setProductOptions(result.productOptions.filter((p: any) => p.count > 0));
-        setShopOptions(result.shopOptions.filter((s: any) => s.count > 0));
-        setAllProductNames(result.allProducts);
-        setAllStoreNames(result.allShops);
+      try {
+        const result = await apiComputeOptions(filteredRecords, dateRange!.start, dateRange!.end, selectedProduct ? [selectedProduct] : [], selectedShops, aliases);
+        if (!cancelled) {
+          setProductOptions(result.productOptions.filter((p: any) => p.count > 0));
+          setShopOptions(result.shopOptions.filter((s: any) => s.count > 0));
+          setAllProductNames(result.allProducts);
+          setAllStoreNames(result.allShops);
+        }
+      } catch (e) {
+        // 选项加载失败时保留上一轮选项，不把筛选栏清空
+        if (!cancelled) console.warn('[产品分析] 筛选选项加载失败:', e);
       }
     })();
     return () => { cancelled = true; };
@@ -232,12 +271,16 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
 
   // Fetch product analysis from backend
   useEffect(() => {
-    if (!dateRange || !selectedProduct || Object.keys(records).length === 0) { setProductData(null); setGlobalTotal(0); setStats(null); return; }
+    // records 整体为空时才清空；日期/产品暂未就绪（例如自定义日期正在编辑）时保留上次结果，
+    // 避免整块面板闪成「请选择一个产品查看详细分析」。
+    if (Object.keys(records).length === 0) { setProductData(null); setGlobalTotal(0); setStats(null); return; }
+    if (!dateRange || !selectedProduct) return;
     const cacheKey = `${dateRange.start}|${dateRange.end}|${selectedProduct}|${[...selectedShops].sort()}`;
     const cached = analysisCacheRef.current.get(cacheKey);
-    if (cached) { setProductData(cached.productData); setGlobalTotal(cached.globalTotal); setStats(cached.stats); return; }
+    if (cached) { setProductData(cached.productData); setGlobalTotal(cached.globalTotal); setStats(cached.stats); setFetchError(null); return; }
     let cancelled = false;
     setLoading(true);
+    setFetchError(null);
     (async () => {
       try {
         const result = await apiComputeProductAnalysis(filteredRecords, dateRange!.start, dateRange!.end, selectedProduct, selectedShops);
@@ -248,7 +291,8 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
           setStats(result.stats);
         }
       } catch (e) {
-        if (!cancelled) { setProductData(null); setGlobalTotal(0); setStats(null); }
+        // 记录真实失败原因（此前静默吞掉，一律显示成「请选择一个产品」，误导排查）
+        if (!cancelled) setFetchError(e instanceof Error ? e.message : String(e));
       } finally { if (!cancelled) setLoading(false); }
     })();
     return () => { cancelled = true; };
@@ -633,11 +677,20 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
     return () => window.removeEventListener('resize', handleResize);
   }, [remarkBarData]);
 
-  if (allProductNames.length === 0) {
+  // 只有整体没有任何记录时才整块替换；筛选/自定义日期导致产品选项为空时仍保留筛选栏，避免无法改回
+  if (Object.keys(records).length === 0) {
     return (<Card className="brutal-card-lift rounded-xl shadow-sm"><CardContent className="flex items-center justify-center py-16 text-muted-foreground"><p className="text-sm">暂无产品数据</p></CardContent></Card>);
   }
 
   const displayName = selectedProduct ? (aliases[selectedProduct]?.alias || selectedProduct) : '';
+  const hasProductData = !!productData && Object.keys(productData).length > 0;
+  const emptyHint = fetchError
+    ? `分析加载失败：${fetchError}`
+    : !dateRange
+      ? (timeMode === 'custom' ? '请选择自定义日期范围' : '请选择日期')
+      : !selectedProduct
+        ? '请选择一个产品查看详细分析'
+        : '该日期范围内暂无该产品数据';
   const metricCards = [
     { label: '产品名称', value: displayName, color: '#14b8a6', isText: true },
     { label: '售后总数', value: stats?.total || 0, color: '#3b82f6' },
@@ -655,7 +708,7 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
               <div className="flex items-center justify-between gap-3 flex-wrap">
                 <div className="flex items-center gap-0.5 bg-muted/60 p-0.5 rounded-lg">
                   {(['day', 'week', 'month', 'custom'] as TimeMode[]).map((mode) => (
-                    <button key={mode} onClick={() => setTimeMode(mode)} className={`relative px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${timeMode === mode ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-background/40'}`}>{timeModeLabels[mode]}</button>
+                    <button key={mode} onClick={() => handleTimeModeChange(mode)} className={`relative px-3 py-1.5 text-xs font-medium rounded-md transition-all duration-200 ${timeMode === mode ? 'bg-background text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-background/40'}`}>{timeModeLabels[mode]}</button>
                   ))}
                 </div>
                 {timeMode === 'custom' && (
@@ -708,8 +761,8 @@ export function ProductAnalysis({ records, selectedDate, initialAliases, readOnl
         </Card>
       </div>
 
-      {!productData ? (
-        <Card className="brutal-card-lift rounded-xl shadow-sm"><CardContent className="flex items-center justify-center py-16 text-muted-foreground"><p className="text-sm">{loading ? '计算中...' : '请选择一个产品查看详细分析'}</p></CardContent></Card>
+      {!hasProductData ? (
+        <Card className="brutal-card-lift rounded-xl shadow-sm"><CardContent className="flex items-center justify-center py-16 text-muted-foreground"><p className="text-sm">{loading ? '计算中...' : emptyHint}</p></CardContent></Card>
       ) : (
         <>
           <Card className="brutal-card-lift rounded-xl shadow-sm overflow-hidden border-l-4 border-l-primary/30">

@@ -67,12 +67,39 @@ def classify_other_details(other_details: List[Dict], keyword_list: List[Tuple[s
 
 # ==================== Data extraction helpers ====================
 
+def _to_int(value: Any) -> int:
+    """容错地把各类数值表示转成 int。
+
+    Excel 导入的历史数据里 total / count / 订单数 可能是 "12.0"、"1,234"、
+    空串、None，甚至带单位的字符串；直接 int() 会抛 ValueError 导致整个接口 500。
+    """
+    if isinstance(value, bool):
+        return int(value)
+    if isinstance(value, (int, float)):
+        return int(value)
+    if isinstance(value, str):
+        s = value.strip().replace(',', '').replace('，', '')
+        if not s:
+            return 0
+        try:
+            return int(float(s))
+        except (ValueError, TypeError):
+            return 0
+    return 0
+
+
 def get_product_total(item: Dict) -> int:
-    return int(item.get('total', 0) or 0)
+    if not isinstance(item, dict):
+        return 0
+    return _to_int(item.get('total', 0))
 
 
 def get_flags(item: Dict) -> Dict[str, int]:
-    return item.get('标旗分类', {}) or {}
+    """标旗分类统一转成 {flag: int}，兼容历史数据里值是字符串/None 的情况。"""
+    raw = item.get('标旗分类') if isinstance(item, dict) else None
+    if not isinstance(raw, dict):
+        return {}
+    return {k: _to_int(v) for k, v in raw.items()}
 
 
 def get_flag_count(item: Dict, flag_type: str) -> int:
@@ -92,13 +119,13 @@ def get_shop_distribution(item: Dict) -> Dict[str, int]:
         result = {}
         for shop, val in shop_flags['红色旗子'].items():
             if isinstance(val, dict) and 'count' in val:
-                result[shop] = val['count']
-            elif isinstance(val, (int, float)):
-                result[shop] = int(val)
+                result[shop] = _to_int(val['count'])
+            elif isinstance(val, (int, float, str)):
+                result[shop] = _to_int(val)
         return result
     shop_dist = item.get('店铺分布', {}) or {}
     return {
-        k: v['count'] if isinstance(v, dict) else int(v)
+        k: _to_int(v['count']) if isinstance(v, dict) else _to_int(v)
         for k, v in shop_dist.items()
     }
 
@@ -157,18 +184,9 @@ def get_remark_by_flag(item: Dict, flag_type: str) -> Dict:
 
 
 def get_shop_count(shop_val: Any) -> int:
-    if isinstance(shop_val, (int, float)):
-        return int(shop_val)
     if isinstance(shop_val, dict):
-        cnt = shop_val.get('count', 0)
-        if isinstance(cnt, (int, float)):
-            return int(cnt)
-        if isinstance(cnt, str):
-            try:
-                return int(cnt)
-            except (ValueError, TypeError):
-                return 0
-    return 0
+        return _to_int(shop_val.get('count', 0))
+    return _to_int(shop_val)
 
 
 def resolve_product_orders(p_data: Dict, selected_shops: List[str]) -> int:
@@ -185,7 +203,9 @@ def resolve_product_orders(p_data: Dict, selected_shops: List[str]) -> int:
         return get_product_total(p_data)
 
     total = 0
-    shop_stats = p_data.get('店铺分类', {}) or {}
+    shop_stats = p_data.get('店铺分类')
+    if not isinstance(shop_stats, dict):
+        return 0
     for _flag, shops_in_flag in shop_stats.items():
         if not isinstance(shops_in_flag, dict):
             continue
@@ -302,9 +322,15 @@ def get_year_range(date_str: str) -> Dict[str, str]:
 
 
 def get_dates_in_range(start_str: str, end_str: str) -> List[str]:
+    # 容错：前端自定义日期可能传入空串/倒序/非法值，不要让整个接口 500
+    try:
+        current = date.fromisoformat(start_str)
+        end = date.fromisoformat(end_str)
+    except (ValueError, TypeError):
+        return []
+    if current > end:
+        return []
     dates = []
-    current = date.fromisoformat(start_str)
-    end = date.fromisoformat(end_str)
     while current <= end:
         dates.append(current.isoformat())
         current += timedelta(days=1)
@@ -333,7 +359,10 @@ def get_week_sunday(monday_str: str) -> str:
 
 def compute_day_summary(date_str: str, records: Dict) -> Optional[Dict]:
     record = records.get(date_str)
-    if not record:
+    if not isinstance(record, dict):
+        return None
+    data = record.get('data')
+    if not isinstance(data, dict):
         return None
 
     total_orders = 0
@@ -342,7 +371,7 @@ def compute_day_summary(date_str: str, records: Dict) -> Optional[Dict]:
     reason_agg = {}
     other_details_all: List[Dict] = []
 
-    for name, item in record.get('data', {}).items():
+    for name, item in data.items():
         total = get_product_total(item)
         total_orders += total
         rf = get_flag_count(item, '红色旗子')
@@ -382,13 +411,18 @@ def compute_filtered_summary(
     product_map = {}
     other_details_all: List[Dict] = []
 
-    dates = [d for d in sorted(records.keys()) if start_date <= d <= end_date]
+    dates = [d for d in sorted(k for k in records if isinstance(k, str)) if start_date <= d <= end_date]
     if not dates:
         return None
 
     for d in dates:
-        record = records[d]
-        for p_name, p_data in record.get('data', {}).items():
+        record = records.get(d)
+        data = record.get('data') if isinstance(record, dict) else None
+        if not isinstance(data, dict):
+            continue
+        for p_name, p_data in data.items():
+            if not isinstance(p_data, dict):
+                continue
             if selected_products and p_name not in selected_products:
                 continue
 
@@ -399,7 +433,9 @@ def compute_filtered_summary(
                 # 未筛选店铺：红旗数取自产品级「标旗分类」
                 p_red_flags = get_flag_count(p_data, '红色旗子')
             else:
-                shop_stats = p_data.get('店铺分类', {}) or {}
+                shop_stats = p_data.get('店铺分类')
+                if not isinstance(shop_stats, dict):
+                    shop_stats = {}
                 for flag, shops_in_flag in shop_stats.items():
                     if flag != '红色旗子' or not isinstance(shops_in_flag, dict):
                         continue
@@ -467,14 +503,21 @@ def compute_options(
     products_set = set()
     shops_set = set()
 
-    dates = [d for d in sorted(records.keys()) if start_date <= d <= end_date]
+    dates = [d for d in sorted(k for k in records if isinstance(k, str)) if start_date <= d <= end_date]
 
     # First pass: collect all product and shop names
     for d in dates:
-        record = records[d]
-        for p_name, p_data in record.get('data', {}).items():
+        record = records.get(d)
+        data = record.get('data') if isinstance(record, dict) else None
+        if not isinstance(data, dict):
+            continue
+        for p_name, p_data in data.items():
+            if not isinstance(p_data, dict):
+                continue
             products_set.add(p_name)
-            shop_stats = p_data.get('店铺分类', {}) or {}
+            shop_stats = p_data.get('店铺分类')
+            if not isinstance(shop_stats, dict):
+                continue
             for flag, shops_in_flag in shop_stats.items():
                 if isinstance(shops_in_flag, dict):
                     for s_name in shops_in_flag:
@@ -487,8 +530,13 @@ def compute_options(
 
     # Second pass: compute counts
     for d in dates:
-        record = records[d]
-        for p_name, p_data in record.get('data', {}).items():
+        record = records.get(d)
+        data = record.get('data') if isinstance(record, dict) else None
+        if not isinstance(data, dict):
+            continue
+        for p_name, p_data in data.items():
+            if not isinstance(p_data, dict):
+                continue
             # 产品计数：未筛选店铺时取产品级 total（唯一在全部日期都完整的字段），
             # 筛选店铺时才按店铺明细求和。
             p_total = resolve_product_orders(p_data, selected_shops)
@@ -498,7 +546,9 @@ def compute_options(
             if selected_products and p_name not in selected_products:
                 continue
 
-            shop_stats = p_data.get('店铺分类', {}) or {}
+            shop_stats = p_data.get('店铺分类')
+            if not isinstance(shop_stats, dict):
+                continue
             for flag, shops_in_flag in shop_stats.items():
                 if not isinstance(shops_in_flag, dict):
                     continue
@@ -540,12 +590,17 @@ def _compute_single_day_summary(
         'yellowFlags': 0, 'purpleFlags': 0,
         'products': {}, 'reasons': {},
     }
-    if not record:
+    if not isinstance(record, dict):
+        return result
+    data = record.get('data')
+    if not isinstance(data, dict):
         return result
 
     other_details_all: List[Dict] = []
 
-    for p_name, p_data in record.get('data', {}).items():
+    for p_name, p_data in data.items():
+        if not isinstance(p_data, dict):
+            continue
         if sel_products and p_name not in sel_products:
             continue
 
@@ -828,7 +883,7 @@ def build_product_data_from_shop_stats(shop_stats: Dict, prov_data: Dict = None)
                         remark_flag_category[flag_name].get(reason, 0) + int(val)
                 elif isinstance(val, dict) and '订单数' in val:
                     remark_flag_category[flag_name][reason] = \
-                        remark_flag_category[flag_name].get(reason, 0) + val['订单数']
+                        remark_flag_category[flag_name].get(reason, 0) + _to_int(val['订单数'])
 
     total = sum(flags.values())
 
@@ -844,11 +899,17 @@ def build_product_data_from_shop_stats(shop_stats: Dict, prov_data: Dict = None)
 
 def merge_product_data(a: Dict, b: Dict) -> Dict:
     """Merge two ProductData objects recursively (product-analysis.tsx)."""
+    if not isinstance(a, dict):
+        a = {}
+    if not isinstance(b, dict):
+        return dict(a)
     result = dict(a)
     for key in b:
         b_val = b[key]
         if isinstance(b_val, (int, float)):
-            result[key] = (result.get(key, 0) or 0) + int(b_val)
+            # 历史脏数据里同一个字段可能是字符串，直接相加会 TypeError，
+            # 这里统一转成整数（跨多天合并时才走到，单日视图不会暴露）
+            result[key] = _to_int(result.get(key, 0)) + int(b_val)
         elif isinstance(b_val, list):
             # 列表（如"其他"备注的明细）需拼接而非覆盖，确保跨日期累加
             if key in result and isinstance(result[key], list):
@@ -860,6 +921,10 @@ def merge_product_data(a: Dict, b: Dict) -> Dict:
                 result[key] = merge_product_data(result[key], b_val)
             else:
                 result[key] = b_val
+        elif isinstance(b_val, str) and key == 'total':
+            # 脏数据兜底：total 允许是 "12.0"、"1,200" 这类数值字符串，
+            # 统一按数值累加，避免下游拿到字符串
+            result[key] = _to_int(result.get(key, 0)) + _to_int(b_val)
         else:
             result[key] = b_val
     return result
@@ -878,14 +943,19 @@ def compute_product_analysis(
 
     for d_str in dates:
         record = records.get(d_str)
-        if not record:
+        if not isinstance(record, dict):
             continue
-        raw_data = record.get('data', {}).get(product_name)
-        if not raw_data:
+        data = record.get('data')
+        if not isinstance(data, dict):
+            continue
+        raw_data = data.get(product_name)
+        if not isinstance(raw_data, dict) or not raw_data:
             continue
 
         if selected_shops:
-            shop_stats = raw_data.get('店铺分类', {}) or {}
+            shop_stats = raw_data.get('店铺分类') or {}
+            if not isinstance(shop_stats, dict):
+                continue
             new_shop_stats = {}
             has_data = False
             num_shops = 0  # 统计纯数字类型的店铺
@@ -907,19 +977,22 @@ def compute_product_analysis(
                 continue
             prov_data = raw_data.get('省份分类', {})
             filtered = build_product_data_from_shop_stats(new_shop_stats, prov_data)
-            # 诊断：对比筛选重建后的数量分类 vs 原始数量分类
-            raw_qty = raw_data.get('数量分类', {}) or {}
-            built_qty = filtered.get('数量分类', {})
-            for flag_name in built_qty:
-                raw_flag_qty = raw_qty.get(flag_name, {})
-                built_flag_qty = built_qty.get(flag_name, {})
-                raw_sum = sum(int(v) for v in raw_flag_qty.values() if isinstance(v, (int, float)))
-                built_sum = sum(int(v) for v in built_flag_qty.values() if isinstance(v, (int, float)))
-                if raw_sum != built_sum:
-                    print(f"[DIAG] {d_str} {product_name}/{flag_name}: 原始数量分类sum={raw_sum}, 筛选重建sum={built_sum}, 差异={raw_sum - built_sum}")
-                    print(f"  原始: {raw_flag_qty}")
-                    print(f"  重建: {built_flag_qty}")
-                    print(f"  new_shop_stats[{flag_name}]: {list(new_shop_stats.get(flag_name, {}).keys())}")
+            # 诊断：对比筛选重建后的数量分类 vs 原始数量分类（结构异常时跳过，避免脏数据打断接口）
+            raw_qty = raw_data.get('数量分类')
+            built_qty = filtered.get('数量分类') or {}
+            if isinstance(raw_qty, dict) and isinstance(built_qty, dict):
+                for flag_name in built_qty:
+                    raw_flag_qty = raw_qty.get(flag_name) or {}
+                    built_flag_qty = built_qty.get(flag_name) or {}
+                    if not isinstance(raw_flag_qty, dict) or not isinstance(built_flag_qty, dict):
+                        continue
+                    raw_sum = sum(_to_int(v) for v in raw_flag_qty.values())
+                    built_sum = sum(_to_int(v) for v in built_flag_qty.values())
+                    if raw_sum != built_sum:
+                        print(f"[DIAG] {d_str} {product_name}/{flag_name}: 原始数量分类sum={raw_sum}, 筛选重建sum={built_sum}, 差异={raw_sum - built_sum}")
+                        print(f"  原始: {raw_flag_qty}")
+                        print(f"  重建: {built_flag_qty}")
+                        print(f"  new_shop_stats[{flag_name}]: {list(new_shop_stats.get(flag_name, {}).keys())}")
         else:
             filtered = raw_data
 
@@ -928,6 +1001,10 @@ def compute_product_analysis(
         else:
             merged = merge_product_data(merged, filtered)
 
+    if merged is not None:
+        # 输出前统一类型：total 一定是整数，标旗分类的值一定是整数
+        merged['total'] = _to_int(merged.get('total'))
+        merged['标旗分类'] = get_flags(merged)
     return merged
 
 
@@ -937,9 +1014,12 @@ def compute_product_global_total(records: Dict, start_date: str, end_date: str) 
     dates = get_dates_in_range(start_date, end_date)
     for d_str in dates:
         record = records.get(d_str)
-        if not record:
+        if not isinstance(record, dict):
             continue
-        for pd in record.get('data', {}).values():
+        data = record.get('data')
+        if not isinstance(data, dict):
+            continue
+        for pd in data.values():
             total += get_product_total(pd)
     return total
 
@@ -1008,7 +1088,7 @@ def compute_region_aggregation(
     flag_type: str = '红色旗子',
 ) -> Optional[Dict]:
     """Aggregate region data across dates and products (region-distribution.tsx)."""
-    dates = [d for d in sorted(records.keys()) if start_date <= d <= end_date]
+    dates = [d for d in sorted(k for k in records if isinstance(k, str)) if start_date <= d <= end_date]
     if not target_products or not dates:
         return None
 
@@ -1050,7 +1130,7 @@ def compute_region_trend_data(
     flag_type: str = '红色旗子',
 ) -> List[Dict]:
     """Compute region trend data (region-distribution.tsx trend view)."""
-    dates = [d for d in sorted(records.keys()) if start_date <= d <= end_date]
+    dates = [d for d in sorted(k for k in records if isinstance(k, str)) if start_date <= d <= end_date]
     result = []
 
     for d_str in dates:
@@ -1118,7 +1198,7 @@ def compute_shop_aggregation(
     flag_type: str = '红色旗子',
 ) -> Optional[Dict]:
     """Aggregate shop data across dates and products (shop-distribution.tsx)."""
-    dates = [d for d in sorted(records.keys()) if start_date <= d <= end_date]
+    dates = [d for d in sorted(k for k in records if isinstance(k, str)) if start_date <= d <= end_date]
     if not target_products or not dates:
         return None
 
@@ -1157,7 +1237,7 @@ def compute_shop_trend_data(
     flag_type: str = '红色旗子',
 ) -> List[Dict]:
     """Compute shop trend data (shop-distribution.tsx trend view)."""
-    dates = [d for d in sorted(records.keys()) if start_date <= d <= end_date]
+    dates = [d for d in sorted(k for k in records if isinstance(k, str)) if start_date <= d <= end_date]
     result = []
 
     for d_str in dates:
@@ -1190,7 +1270,7 @@ def compute_shop_all_shops(
     product_names: List[str],
 ) -> List[Dict]:
     """Get all shops with their total counts (shop-distribution.tsx)."""
-    dates = [d for d in sorted(records.keys()) if start_date <= d <= end_date]
+    dates = [d for d in sorted(k for k in records if isinstance(k, str)) if start_date <= d <= end_date]
     shop_totals = {}
     for d_str in dates:
         record = records.get(d_str)
@@ -1224,7 +1304,7 @@ def compute_shop_filtered_products(
     result = []
     for pname in products_to_aggregate:
         has_shop = False
-        dates = [d for d in sorted(records.keys()) if start_date <= d <= end_date]
+        dates = [d for d in sorted(k for k in records if isinstance(k, str)) if start_date <= d <= end_date]
         for d_str in dates:
             pd = records.get(d_str, {}).get('data', {}).get(pname)
             if not pd:

@@ -4,11 +4,42 @@ Thin controllers: receive request with data, call service functions, return JSON
 All business logic lives in services/compute.py
 """
 import json
+import traceback
+from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Optional
 from fastapi import APIRouter, HTTPException, Query
 from services import compute as svc
 
 router = APIRouter(prefix='/api/compute', tags=['compute'])
+
+
+def _dump_error(endpoint: str, payload: Dict, exc: BaseException) -> None:
+    """把失败堆栈落盘到 _diag/last_backend_error.json（该目录不入库）。
+
+    前端只能拿到 "Internal Server Error"，没有这里无法定位是哪个字段触发的。
+    """
+    try:
+        out_dir = Path(__file__).resolve().parents[2] / '_diag'
+        out_dir.mkdir(parents=True, exist_ok=True)
+        records = payload.get('records')
+        record_dates = sorted(records) if isinstance(records, dict) else []
+        info = {
+            'time': datetime.now().isoformat(timespec='seconds'),
+            'endpoint': endpoint,
+            'error': f'{type(exc).__name__}: {exc}',
+            'traceback': traceback.format_exc(),
+            'startDate': payload.get('startDate'),
+            'endDate': payload.get('endDate'),
+            'productName': payload.get('productName'),
+            'selectedShops': payload.get('selectedShops'),
+            'recordCount': len(record_dates),
+            'recordDates': record_dates[:5] + (['...'] if len(record_dates) > 5 else []),
+        }
+        (out_dir / 'last_backend_error.json').write_text(
+            json.dumps(info, ensure_ascii=False, indent=2), encoding='utf-8')
+    except Exception:
+        pass
 
 
 # ==================== Data extraction helpers ====================
@@ -180,17 +211,36 @@ async def trend_data(payload: Dict):
 
 @router.post('/product-analysis')
 async def product_analysis(payload: Dict):
+    try:
+        return _product_analysis(payload)
+    except Exception as e:
+        # 落盘堆栈：前端只能看到 500，没有这个就没法定位脏字段
+        _dump_error('product-analysis', payload, e)
+        raise
+
+
+def _product_analysis(payload: Dict):
+    records = payload.get('records') or {}
+    if not isinstance(records, dict):
+        records = {}
+    start_date = payload.get('startDate', '')
+    end_date = payload.get('endDate', '')
+    product_name = payload.get('productName', '')
+    selected_shops = payload.get('selectedShops') or []
+    if not isinstance(selected_shops, list):
+        selected_shops = []
+
     aggregated = svc.compute_product_analysis(
-        records=payload.get('records', {}),
-        start_date=payload.get('startDate', ''),
-        end_date=payload.get('endDate', ''),
-        product_name=payload.get('productName', ''),
-        selected_shops=payload.get('selectedShops', []),
+        records=records,
+        start_date=start_date,
+        end_date=end_date,
+        product_name=product_name,
+        selected_shops=selected_shops,
     )
     global_total = svc.compute_product_global_total(
-        records=payload.get('records', {}),
-        start_date=payload.get('startDate', ''),
-        end_date=payload.get('endDate', ''),
+        records=records,
+        start_date=start_date,
+        end_date=end_date,
     )
 
     if aggregated is None:
@@ -203,18 +253,23 @@ async def product_analysis(payload: Dict):
 
     stats = svc.compute_product_stats(aggregated)
 
-    # 诊断：打印筛选后的 qtyStats 汇总
-    selected_shops = payload.get('selectedShops', [])
+    # 诊断日志：仅在结构正常时输出，避免脏数据打断接口
     if selected_shops:
-        product_name = payload.get('productName', '')
-        print(f"[DIAG:product-analysis] product={product_name}, shops={selected_shops}")
-        print(f"  total={aggregated.get('total')}, flags={aggregated.get('标旗分类')}")
-        qty_data = aggregated.get('数量分类', {})
-        for flag, qmap in qty_data.items():
-            qsum = sum(int(v) for v in qmap.values() if isinstance(v, (int, float)))
-            flag_total = aggregated.get('标旗分类', {}).get(flag, 0)
-            print(f"  qty[{flag}]: sum={qsum}, flag_total={flag_total}, 匹配={qsum==flag_total}")
-        print(f"  qtyStats: {stats.get('qtyStats')}")
+        try:
+            print(f"[DIAG:product-analysis] product={product_name}, shops={selected_shops}")
+            print(f"  total={aggregated.get('total')}, flags={aggregated.get('标旗分类')}")
+            qty_data = aggregated.get('数量分类') or {}
+            flags_data = aggregated.get('标旗分类') or {}
+            if isinstance(qty_data, dict):
+                for flag, qmap in qty_data.items():
+                    if not isinstance(qmap, dict):
+                        continue
+                    qsum = sum(svc._to_int(v) for v in qmap.values())
+                    flag_total = flags_data.get(flag, 0) if isinstance(flags_data, dict) else 0
+                    print(f"  qty[{flag}]: sum={qsum}, flag_total={flag_total}, 匹配={qsum==flag_total}")
+            print(f"  qtyStats: {stats.get('qtyStats')}")
+        except Exception:
+            pass
 
     return {
         'productData': aggregated,
